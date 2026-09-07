@@ -173,12 +173,13 @@ export const MessProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // App Settings & Details
   const appSettings = useMemo<AppSettings>(() => {
+    if (!db.settings) return DEFAULT_APP_SETTINGS;
     return {
       ...DEFAULT_APP_SETTINGS,
-      ...(db.settings || {}),
+      ...db.settings,
       auth: {
         ...DEFAULT_APP_SETTINGS.auth,
-        ...(db.settings?.auth || {}),
+        ...(db.settings.auth || {}),
       },
     };
   }, [db.settings]);
@@ -336,21 +337,6 @@ export const MessProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw err;
     }
   };
-
-  // Cleanup August 2026 if present
-  useEffect(() => {
-    if (db.months.some((m) => m.id === '2026-08')) {
-      setDb((prev) => ({
-        ...prev,
-        months: prev.months.filter((m) => m.id !== '2026-08'),
-        expenses: prev.expenses.filter((e) => e.monthId !== '2026-08'),
-        contributions: prev.contributions.filter((c) => c.monthId !== '2026-08'),
-      }));
-      if (currentMonthId === '2026-08') {
-        setCurrentMonthId('2026-09');
-      }
-    }
-  }, [db.months, currentMonthId]);
 
   // Current active month object
   const currentMonth = useMemo(() => {
@@ -1323,21 +1309,6 @@ export const MessProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logoutMember = () => {
-    setDb((prev) => {
-      if (!prev.settings?.auth?.enabled) {
-        return {
-          ...prev,
-          settings: {
-            ...prev.settings,
-            auth: {
-              ...(prev.settings?.auth || DEFAULT_APP_SETTINGS.auth),
-              enabled: true,
-            },
-          },
-        };
-      }
-      return prev;
-    });
     setCurrentUser(null);
     try {
       localStorage.removeItem(SESSION_USER_KEY);

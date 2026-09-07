@@ -59,16 +59,45 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ initialTab = 'detail
   }, [initialTab]);
 
   // Form State for App Branding & Details
-  const [appName, setAppName] = useState(appSettings.appName || 'MessManager');
-  const [appSubtitle, setAppSubtitle] = useState(appSettings.appSubtitle || '');
+  const [appName, setAppName] = useState(appSettings.appName || 'MESSTY-KSA');
+  const [appSubtitle, setAppSubtitle] = useState(appSettings.appSubtitle || 'Living Cost Management');
   const [messAddress, setMessAddress] = useState(appSettings.messAddress || '');
   const [contactNumber, setContactNumber] = useState(appSettings.contactNumber || '');
   const [currencySymbol, setCurrencySymbol] = useState(appSettings.currencySymbol || 'SAR');
   const [notes, setNotes] = useState(appSettings.notes || '');
+  const [isDetailsDirty, setIsDetailsDirty] = useState(false);
 
   // Form State for Authentication Controls (shared between both members)
   const [authEnabled, setAuthEnabled] = useState(appSettings.auth?.enabled ?? true);
   const [requirePin, setRequirePin] = useState(appSettings.auth?.requirePin ?? true);
+  const [isAuthDirty, setIsAuthDirty] = useState(false);
+
+  // Synchronize form fields with appSettings when loaded/synced, ONLY if user is not actively editing
+  useEffect(() => {
+    if (!isDetailsDirty) {
+      setAppName(appSettings.appName || 'MESSTY-KSA');
+      setAppSubtitle(appSettings.appSubtitle || 'Living Cost Management');
+      setMessAddress(appSettings.messAddress || '');
+      setContactNumber(appSettings.contactNumber || '');
+      setCurrencySymbol(appSettings.currencySymbol || 'SAR');
+      setNotes(appSettings.notes || '');
+    }
+  }, [
+    appSettings.appName,
+    appSettings.appSubtitle,
+    appSettings.messAddress,
+    appSettings.contactNumber,
+    appSettings.currencySymbol,
+    appSettings.notes,
+    isDetailsDirty,
+  ]);
+
+  useEffect(() => {
+    if (!isAuthDirty) {
+      setAuthEnabled(appSettings.auth?.enabled ?? true);
+      setRequirePin(appSettings.auth?.requirePin ?? true);
+    }
+  }, [appSettings.auth?.enabled, appSettings.auth?.requirePin, isAuthDirty]);
 
   // Tanvir Private PIN Form
   const [tanvirCurrentPin, setTanvirCurrentPin] = useState('');
@@ -107,6 +136,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ initialTab = 'detail
       currencySymbol: currencySymbol.trim() || 'SAR',
       notes: notes.trim(),
     });
+    setIsDetailsDirty(false);
 
     setStatusMsg({
       type: 'success',
@@ -121,6 +151,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ initialTab = 'detail
       enabled: authEnabled,
       requirePin: requirePin,
     });
+    setIsAuthDirty(false);
     setStatusMsg({
       type: 'success',
       text: 'Login system preferences updated successfully.',
@@ -363,7 +394,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ initialTab = 'detail
                     type="text"
                     required
                     value={appName}
-                    onChange={(e) => setAppName(e.target.value)}
+                    onChange={(e) => {
+                      setAppName(e.target.value);
+                      setIsDetailsDirty(true);
+                    }}
                     placeholder="e.g., Tanvir & Zilam Mess, MessManager"
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-slate-800"
                   />
@@ -377,7 +411,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ initialTab = 'detail
                   <input
                     type="text"
                     value={appSubtitle}
-                    onChange={(e) => setAppSubtitle(e.target.value)}
+                    onChange={(e) => {
+                      setAppSubtitle(e.target.value);
+                      setIsDetailsDirty(true);
+                    }}
                     placeholder="e.g., Monthly Mess Cost & Settlement"
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-slate-800"
                   />
@@ -394,7 +431,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ initialTab = 'detail
                   <input
                     type="text"
                     value={messAddress}
-                    onChange={(e) => setMessAddress(e.target.value)}
+                    onChange={(e) => {
+                      setMessAddress(e.target.value);
+                      setIsDetailsDirty(true);
+                    }}
                     placeholder="e.g., Flat 4B, Building 12, Riyadh, KSA"
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-slate-800"
                   />
@@ -408,7 +448,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ initialTab = 'detail
                   <input
                     type="text"
                     value={currencySymbol}
-                    onChange={(e) => setCurrencySymbol(e.target.value)}
+                    onChange={(e) => {
+                      setCurrencySymbol(e.target.value);
+                      setIsDetailsDirty(true);
+                    }}
                     placeholder="SAR, BDT, USD"
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-slate-800 font-mono"
                   />
@@ -423,7 +466,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ initialTab = 'detail
                 <input
                   type="text"
                   value={contactNumber}
-                  onChange={(e) => setContactNumber(e.target.value)}
+                  onChange={(e) => {
+                    setContactNumber(e.target.value);
+                    setIsDetailsDirty(true);
+                  }}
                   placeholder="e.g., +966 50 000 0000"
                   className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-slate-800"
                 />
@@ -437,7 +483,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ initialTab = 'detail
                 <textarea
                   rows={3}
                   value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
+                  onChange={(e) => {
+                    setNotes(e.target.value);
+                    setIsDetailsDirty(true);
+                  }}
                   placeholder="e.g., Monthly contribution to be paid by 5th of every month. Bazaar expenses recorded with receipts."
                   className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-slate-800"
                 />
@@ -540,7 +589,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ initialTab = 'detail
                   <input
                     type="checkbox"
                     checked={authEnabled}
-                    onChange={(e) => setAuthEnabled(e.target.checked)}
+                    onChange={(e) => {
+                      setAuthEnabled(e.target.checked);
+                      setIsAuthDirty(true);
+                    }}
                     className="sr-only peer"
                   />
                   <div className="w-11 h-6 bg-slate-300 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
@@ -561,7 +613,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ initialTab = 'detail
                   <input
                     type="checkbox"
                     checked={requirePin}
-                    onChange={(e) => setRequirePin(e.target.checked)}
+                    onChange={(e) => {
+                      setRequirePin(e.target.checked);
+                      setIsAuthDirty(true);
+                    }}
                     className="sr-only peer"
                   />
                   <div className="w-11 h-6 bg-slate-300 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>

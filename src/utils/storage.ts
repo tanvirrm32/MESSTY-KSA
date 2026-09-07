@@ -1,12 +1,12 @@
 import { AppDatabase, Category, Expense, Contribution, MessMonth, AuditLog, AppSettings } from '../types';
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
-  appName: 'MessManager',
-  appSubtitle: 'Monthly Mess Cost & Settlement Management',
-  messAddress: 'Tanvir Rana & Zilam Jahid Shared Mess',
+  appName: 'MESSTY-KSA',
+  appSubtitle: 'Living Cost Management',
+  messAddress: '',
   contactNumber: '',
   currencySymbol: 'SAR',
-  notes: 'Shared 50/50 Mess Expense Ledger',
+  notes: '',
   auth: {
     enabled: true,
     requirePin: true,
@@ -94,15 +94,19 @@ export function loadDatabase(): AppDatabase {
       saveDatabase(initial);
       return initial;
     }
-    // Normalize settings
-    parsed.settings = {
-      ...DEFAULT_APP_SETTINGS,
-      ...(parsed.settings || {}),
-      auth: {
-        ...DEFAULT_APP_SETTINGS.auth,
-        ...(parsed.settings?.auth || {}),
-      },
-    };
+    // Preserve user settings without force-overwriting custom values
+    if (!parsed.settings) {
+      parsed.settings = DEFAULT_APP_SETTINGS;
+    } else {
+      parsed.settings = {
+        ...DEFAULT_APP_SETTINGS,
+        ...parsed.settings,
+        auth: {
+          ...DEFAULT_APP_SETTINGS.auth,
+          ...(parsed.settings.auth || {}),
+        },
+      };
+    }
 
     // Permanently remove sample demo expenses and contributions if present in storage
     parsed.expenses = (parsed.expenses || []).filter((e) => !SAMPLE_EXPENSE_IDS.has(e.id));
@@ -110,16 +114,8 @@ export function loadDatabase(): AppDatabase {
       (c) => !SAMPLE_CONTRIBUTION_IDS.has(c.id) && !SAMPLE_EXPENSE_IDS.has(c.linkedExpenseId || '')
     );
 
-    // Remove August 2026 ('2026-08') if present in existing storage
-    if (parsed.months.some((m) => m.id === '2026-08')) {
-      parsed.months = parsed.months.filter((m) => m.id !== '2026-08');
-      parsed.expenses = parsed.expenses.filter((e) => e.monthId !== '2026-08');
-      parsed.contributions = parsed.contributions.filter((c) => c.monthId !== '2026-08');
-    }
-
-    const synced = syncExistingBazaarContributions(parsed);
-    saveDatabase(synced);
-    return synced;
+    saveDatabase(parsed);
+    return parsed;
   } catch (err) {
     console.error('Failed to load database from localStorage, initializing default', err);
     const initial = getInitialDatabase();
