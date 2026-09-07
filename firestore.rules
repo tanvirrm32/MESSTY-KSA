@@ -1,0 +1,19 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Connection health check
+    match /test/{docId} {
+      allow read, write: if true;
+    }
+
+    // Mess database records
+    match /mess_records/{recordId} {
+      allow read, write: if true;
+    }
+  }
+}

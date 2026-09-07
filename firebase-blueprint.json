@@ -1,0 +1,50 @@
+{
+  "entities": {
+    "MessDatabase": {
+      "title": "MessDatabase",
+      "description": "Primary ledger state containing all expenses, contributions, months, and settings for the mess.",
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "number",
+          "description": "Database schema version number"
+        },
+        "months": {
+          "type": "array",
+          "description": "List of active and finalized billing months"
+        },
+        "categories": {
+          "type": "array",
+          "description": "Configured expense categories"
+        },
+        "expenses": {
+          "type": "array",
+          "description": "All recorded mess expenses with split calculation data"
+        },
+        "contributions": {
+          "type": "array",
+          "description": "All recorded deposits and member balance contributions"
+        },
+        "auditLogs": {
+          "type": "array",
+          "description": "Audit logs recording operations and actions"
+        },
+        "settings": {
+          "type": "object",
+          "description": "Mess details, currency symbol, and authentication settings"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "ISO timestamp of the latest change"
+        }
+      },
+      "required": ["version", "months", "categories", "expenses", "contributions"]
+    }
+  },
+  "firestore": {
+    "/mess_records/{recordId}": {
+      "schema": "MessDatabase",
+      "description": "Stores the central live synchronized ledger data for the mess."
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Monthly Mess Cost Management",
+  "description": "Monthly expense, contribution, and settlement management for Tanvir Rana and Zilam Jahid.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
