@@ -12,6 +12,8 @@ import {
   Wallet,
   ArrowUpRight,
   Landmark,
+  LayoutList,
+  Table as TableIcon,
 } from 'lucide-react';
 import { useMess } from '../context/MessContext';
 import { formatCurrency, formatDate } from '../utils/calcEngine';
@@ -33,6 +35,9 @@ export const ContributionsView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMember, setSelectedMember] = useState<'all' | 'tanvir-rana' | 'zilam-jahid'>('all');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>(() => {
+    return typeof window !== 'undefined' && window.innerWidth < 768 ? 'cards' : 'table';
+  });
 
   // Month-filtered contributions
   const monthContributions = useMemo(
@@ -352,163 +357,319 @@ export const ContributionsView: React.FC = () => {
         </div>
       </div>
 
-      {/* Filter Bar */}
+      {/* Filter Bar & View Toggle */}
       <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <Search className="w-4 h-4 absolute left-3 top-2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search reference, notes, method..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-xs border border-slate-300 rounded-md focus:border-blue-500 outline-hidden bg-white"
-          />
+        <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[240px]">
+          <div className="relative flex-1 min-w-[180px] max-w-sm">
+            <Search className="w-4 h-4 absolute left-3 top-2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search reference, notes, method..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 text-xs border border-slate-300 rounded-md focus:border-blue-500 outline-hidden bg-white"
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-slate-500">Member:</span>
+            <select
+              value={selectedMember}
+              onChange={(e) => setSelectedMember(e.target.value as any)}
+              className="px-2.5 py-1.5 text-xs border border-slate-300 rounded-md outline-hidden bg-white font-medium text-slate-700"
+            >
+              <option value="all">All Members</option>
+              <option value="tanvir-rana">Tanvir Rana</option>
+              <option value="zilam-jahid">Zilam Jahid</option>
+            </select>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-slate-500">Member:</span>
-          <select
-            value={selectedMember}
-            onChange={(e) => setSelectedMember(e.target.value as any)}
-            className="px-2.5 py-1.5 text-xs border border-slate-300 rounded-md outline-hidden bg-white font-medium text-slate-700"
+        {/* View Mode Switcher */}
+        <div className="flex items-center gap-1 bg-slate-200/80 p-0.5 rounded-lg border border-slate-300/60">
+          <button
+            type="button"
+            onClick={() => setViewMode('cards')}
+            className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+              viewMode === 'cards'
+                ? 'bg-white text-emerald-700 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+            title="Card View (Mobile friendly)"
           >
-            <option value="all">All Members</option>
-            <option value="tanvir-rana">Tanvir Rana</option>
-            <option value="zilam-jahid">Zilam Jahid</option>
-          </select>
+            <LayoutList className="w-3.5 h-3.5" />
+            <span>Cards</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('table')}
+            className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+              viewMode === 'table'
+                ? 'bg-white text-emerald-700 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+            title="Table View (Spreadsheet)"
+          >
+            <TableIcon className="w-3.5 h-3.5" />
+            <span>Table</span>
+          </button>
         </div>
       </div>
 
-      {/* Contributions Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200">
-                <th className="py-2.5 px-3">Date</th>
-                <th className="py-2.5 px-3">ID</th>
-                <th className="py-2.5 px-3">Member</th>
-                <th className="py-2.5 px-3 text-right">Amount</th>
-                <th className="py-2.5 px-3">Payment Method</th>
-                <th className="py-2.5 px-3">Reference</th>
-                <th className="py-2.5 px-3">Notes</th>
-                <th className="py-2.5 px-3 text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredContributions.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-400">
-                    No member contributions recorded for this month.
-                  </td>
-                </tr>
-              ) : (
-                filteredContributions.map((con) => (
-                  <tr key={con.id} className="hover:bg-slate-50/70 transition-colors">
-                    {/* Date */}
-                    <td className="py-3 px-4 font-medium text-slate-700 whitespace-nowrap">
+      {/* Contributions Display: Cards or Table */}
+      {viewMode === 'cards' ? (
+        <div className="space-y-3">
+          {filteredContributions.length === 0 ? (
+            <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-400 text-xs">
+              No member contributions recorded for this month.
+            </div>
+          ) : (
+            filteredContributions.map((con) => (
+              <div
+                key={con.id}
+                className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs space-y-3 hover:border-slate-300 transition-colors"
+              >
+                {/* Header: Date, ID, Member, Amount */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs font-semibold text-slate-700">
                       {formatDate(con.date)}
-                    </td>
-
-                    {/* ID */}
-                    <td className="py-3 px-3 font-mono text-[11px] text-slate-400">
-                      {con.id}
-                    </td>
-
-                    {/* Member */}
-                    <td className="py-3 px-4 whitespace-nowrap">
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-400">
+                      #{con.id}
+                    </span>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        con.memberId === 'tanvir-rana'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-blue-100 text-blue-800'
+                      }`}
+                    >
                       <span
-                        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          con.memberId === 'tanvir-rana'
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : 'bg-blue-100 text-blue-800'
+                        className={`w-1.5 h-1.5 rounded-full ${
+                          con.memberId === 'tanvir-rana' ? 'bg-emerald-600' : 'bg-blue-600'
                         }`}
-                      >
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full ${
-                            con.memberId === 'tanvir-rana' ? 'bg-emerald-600' : 'bg-blue-600'
-                          }`}
-                        />
-                        {con.memberId === 'tanvir-rana' ? 'Tanvir Rana' : 'Zilam Jahid'}
-                      </span>
-                    </td>
+                      />
+                      {con.memberId === 'tanvir-rana' ? 'Tanvir Rana' : 'Zilam Jahid'}
+                    </span>
+                  </div>
 
-                    {/* Amount */}
-                    <td className="py-3 px-4 text-right font-mono font-bold text-slate-900 whitespace-nowrap">
+                  <div className="text-right shrink-0">
+                    <span className="text-base font-bold font-mono text-emerald-700">
                       {formatCurrency(con.amount)}
-                    </td>
+                    </span>
+                  </div>
+                </div>
 
-                    {/* Method */}
-                    <td className="py-3 px-3 whitespace-nowrap">
-                      <div className="flex items-center gap-1.5">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-700">
-                          {con.paymentMethod === 'Bank' && <Building className="w-3 h-3 text-slate-500" />}
-                          {con.paymentMethod === 'Cash' && <Coins className="w-3 h-3 text-slate-500" />}
-                          {con.paymentMethod === 'Other' && <CreditCard className="w-3 h-3 text-slate-500" />}
-                          {con.paymentMethod}
-                        </span>
-                        {(con.isAutoExpense || con.linkedExpenseId) && (
-                          <span
-                            className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"
-                            title="Automatically added from bazaar expense"
-                          >
-                            Bazaar Auto
-                          </span>
-                        )}
+                {/* Method & Tags */}
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-700">
+                    {con.paymentMethod === 'Bank' && <Building className="w-3 h-3 text-slate-500" />}
+                    {con.paymentMethod === 'Cash' && <Coins className="w-3 h-3 text-slate-500" />}
+                    {con.paymentMethod === 'Other' && <CreditCard className="w-3 h-3 text-slate-500" />}
+                    {con.paymentMethod}
+                  </span>
+
+                  {(con.isAutoExpense || con.linkedExpenseId) && (
+                    <span
+                      className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"
+                      title="Automatically added from bazaar expense"
+                    >
+                      Bazaar Auto Credit
+                    </span>
+                  )}
+                </div>
+
+                {/* Reference & Notes */}
+                {(con.reference || con.notes) && (
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 text-xs space-y-1">
+                    {con.reference && (
+                      <div className="font-mono text-[11px] text-slate-600 truncate">
+                        Ref: {con.reference}
                       </div>
-                    </td>
-
-                    {/* Reference */}
-                    <td className="py-3 px-4 font-mono text-[11px] text-slate-600 max-w-xs">
-                      <div className="truncate">{con.reference || '—'}</div>
-                      {(con.updatedByName || con.createdByName) && (
-                        <div className="text-[10px] text-slate-400 font-sans font-normal mt-0.5 flex items-center gap-1">
-                          <span>{con.updatedByName ? 'Updated by:' : 'Added by:'}</span>
-                          <span className="font-semibold text-slate-600">
-                            {con.updatedByName || con.createdByName}
-                          </span>
-                        </div>
-                      )}
-                    </td>
-
-                    {/* Notes */}
-                    <td className="py-3 px-4 text-slate-500 max-w-xs truncate text-[11px]">
-                      {con.notes || '—'}
-                    </td>
-
-                    {/* Actions */}
-                    <td className="py-3 px-4 text-center whitespace-nowrap">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingContribution(con);
-                            setIsContributionModalOpen(true);
-                          }}
-                          disabled={currentMonth.status === 'finalized'}
-                          className="p-1.5 text-slate-400 hover:text-blue-600 rounded-md hover:bg-blue-50 transition-colors disabled:opacity-40 cursor-pointer"
-                          title="Edit Contribution"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDeletingId(con.id)}
-                          disabled={currentMonth.status === 'finalized'}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 rounded-md hover:bg-rose-50 transition-colors disabled:opacity-40 cursor-pointer"
-                          title="Delete Contribution"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                    )}
+                    {con.notes && (
+                      <div className="text-slate-600">
+                        {con.notes}
                       </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Footer: Added by info & Actions */}
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-3 text-xs">
+                  <div className="text-[10px] text-slate-400">
+                    {(con.updatedByName || con.createdByName) ? (
+                      <span>
+                        {con.updatedByName ? 'Updated by:' : 'Added by:'}{' '}
+                        <strong className="text-slate-600">{con.updatedByName || con.createdByName}</strong>
+                      </span>
+                    ) : (
+                      <span>Deposit confirmed</span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingContribution(con);
+                        setIsContributionModalOpen(true);
+                      }}
+                      disabled={currentMonth.status === 'finalized'}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors disabled:opacity-40 cursor-pointer"
+                      title="Edit Contribution"
+                    >
+                      <Edit2 className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Edit</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeletingId(con.id)}
+                      disabled={currentMonth.status === 'finalized'}
+                      className="inline-flex items-center gap-1 px-2 py-1.5 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors disabled:opacity-40 cursor-pointer"
+                      title="Delete Contribution"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      ) : (
+        /* Contributions Table */
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse min-w-[650px]">
+              <thead>
+                <tr className="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200">
+                  <th className="py-2.5 px-3">Date</th>
+                  <th className="py-2.5 px-3">ID</th>
+                  <th className="py-2.5 px-3">Member</th>
+                  <th className="py-2.5 px-3 text-right">Amount</th>
+                  <th className="py-2.5 px-3">Payment Method</th>
+                  <th className="py-2.5 px-3">Reference</th>
+                  <th className="py-2.5 px-3">Notes</th>
+                  <th className="py-2.5 px-3 text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredContributions.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center text-slate-400">
+                      No member contributions recorded for this month.
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  filteredContributions.map((con) => (
+                    <tr key={con.id} className="hover:bg-slate-50/70 transition-colors">
+                      {/* Date */}
+                      <td className="py-3 px-4 font-medium text-slate-700 whitespace-nowrap">
+                        {formatDate(con.date)}
+                      </td>
+
+                      {/* ID */}
+                      <td className="py-3 px-3 font-mono text-[11px] text-slate-400">
+                        {con.id}
+                      </td>
+
+                      {/* Member */}
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            con.memberId === 'tanvir-rana'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-blue-100 text-blue-800'
+                          }`}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              con.memberId === 'tanvir-rana' ? 'bg-emerald-600' : 'bg-blue-600'
+                            }`}
+                          />
+                          {con.memberId === 'tanvir-rana' ? 'Tanvir Rana' : 'Zilam Jahid'}
+                        </span>
+                      </td>
+
+                      {/* Amount */}
+                      <td className="py-3 px-4 text-right font-mono font-bold text-slate-900 whitespace-nowrap">
+                        {formatCurrency(con.amount)}
+                      </td>
+
+                      {/* Method */}
+                      <td className="py-3 px-3 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-700">
+                            {con.paymentMethod === 'Bank' && <Building className="w-3 h-3 text-slate-500" />}
+                            {con.paymentMethod === 'Cash' && <Coins className="w-3 h-3 text-slate-500" />}
+                            {con.paymentMethod === 'Other' && <CreditCard className="w-3 h-3 text-slate-500" />}
+                            {con.paymentMethod}
+                          </span>
+                          {(con.isAutoExpense || con.linkedExpenseId) && (
+                            <span
+                              className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              title="Automatically added from bazaar expense"
+                            >
+                              Bazaar Auto
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Reference */}
+                      <td className="py-3 px-4 font-mono text-[11px] text-slate-600 max-w-xs">
+                        <div className="truncate">{con.reference || '—'}</div>
+                        {(con.updatedByName || con.createdByName) && (
+                          <div className="text-[10px] text-slate-400 font-sans font-normal mt-0.5 flex items-center gap-1">
+                            <span>{con.updatedByName ? 'Updated by:' : 'Added by:'}</span>
+                            <span className="font-semibold text-slate-600">
+                              {con.updatedByName || con.createdByName}
+                            </span>
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Notes */}
+                      <td className="py-3 px-4 text-slate-500 max-w-xs truncate text-[11px]">
+                        {con.notes || '—'}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-3 px-4 text-center whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingContribution(con);
+                              setIsContributionModalOpen(true);
+                            }}
+                            disabled={currentMonth.status === 'finalized'}
+                            className="p-1.5 text-slate-400 hover:text-blue-600 rounded-md hover:bg-blue-50 transition-colors disabled:opacity-40 cursor-pointer"
+                            title="Edit Contribution"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeletingId(con.id)}
+                            disabled={currentMonth.status === 'finalized'}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 rounded-md hover:bg-rose-50 transition-colors disabled:opacity-40 cursor-pointer"
+                            title="Delete Contribution"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       <ConfirmModal

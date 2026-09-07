@@ -103,43 +103,45 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="no-print h-16 bg-white border-b border-slate-200 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-30 shrink-0">
+    <header className="no-print h-14 sm:h-16 bg-white border-b border-slate-200 px-3 sm:px-6 lg:px-8 flex items-center justify-between sticky top-0 z-30 shrink-0">
       {/* Left: Mobile hamburger & Month Selector */}
-      <div className="flex items-center gap-3 sm:gap-4">
+      <div className="flex items-center gap-2 sm:gap-4 min-w-0">
         {toggleSidebar && (
           <button
             type="button"
             onClick={toggleSidebar}
-            className="lg:hidden p-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+            className="lg:hidden p-1.5 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors shrink-0"
+            title="Open Menu"
           >
             <Menu className="w-5 h-5" />
           </button>
         )}
 
         {/* Selected Month Pill */}
-        <div className="relative">
-          <div className="flex items-center gap-2">
+        <div className="relative min-w-0">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               type="button"
               onClick={() => setIsMonthDropdownOpen(!isMonthDropdownOpen)}
-              className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200/70 px-3 py-1.5 rounded-md border border-slate-200 transition-colors cursor-pointer text-left"
+              className="flex items-center gap-1.5 sm:gap-2 bg-slate-100 hover:bg-slate-200/70 px-2.5 sm:px-3 py-1.5 rounded-lg border border-slate-200 transition-colors cursor-pointer text-left shrink-0"
             >
-              <span className="text-xs sm:text-sm font-semibold text-slate-600 uppercase tracking-tight">
-                Selected Month:
+              <Calendar className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+              <span className="hidden md:inline text-xs sm:text-sm font-semibold text-slate-500 uppercase tracking-tight">
+                Month:
               </span>
-              <span className="text-xs sm:text-sm font-bold text-blue-600">
+              <span className="text-xs sm:text-sm font-bold text-blue-700 truncate max-w-[100px] xs:max-w-[140px] sm:max-w-none">
                 {currentMonth.name}
               </span>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-500 ml-0.5" />
+              <ChevronDown className="w-3.5 h-3.5 text-slate-500 shrink-0" />
             </button>
 
             {/* Status Badge */}
             {currentMonth.status === 'finalized' ? (
-              <span className="px-2 py-0.5 bg-amber-100 text-amber-800 text-[10px] font-bold uppercase rounded border border-amber-200 flex items-center gap-1">
+              <span className="hidden sm:inline-flex px-2 py-0.5 bg-amber-100 text-amber-800 text-[10px] font-bold uppercase rounded border border-amber-200 items-center gap-1 shrink-0">
                 <Lock className="w-2.5 h-2.5" /> Finalized
               </span>
             ) : (
-              <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase rounded border border-emerald-200 flex items-center gap-1">
+              <span className="hidden sm:inline-flex px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase rounded border border-emerald-200 items-center gap-1 shrink-0">
                 Active
               </span>
             )}
@@ -206,7 +208,7 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Right: Quick Action Buttons */}
-      <div className="flex items-center gap-2 sm:gap-2.5">
+      <div className="flex items-center gap-1.5 sm:gap-2.5">
         {/* Firebase Cloud Sync Indicator */}
         <button
           type="button"
@@ -220,7 +222,7 @@ export const Header: React.FC<HeaderProps> = ({
               ? 'Syncing to cloud...'
               : 'Sync Error / Offline'
           }${lastSyncedAt ? ` • Last synced at ${lastSyncedAt}` : ''}. Click to manual sync.`}
-          className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition-colors shadow-2xs text-xs cursor-pointer"
+          className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition-colors shadow-2xs text-xs cursor-pointer"
         >
           <span
             className={`w-2 h-2 rounded-full ${
@@ -232,11 +234,12 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
           />
           <Cloud className={`w-3.5 h-3.5 ${firebaseSyncStatus === 'connected' ? 'text-emerald-600' : 'text-slate-400'}`} />
-          <span className="text-[11px] font-medium text-slate-700 hidden md:inline">
+          <span className="text-[11px] font-medium text-slate-700 hidden lg:inline">
             {firebaseSyncStatus === 'connected' ? 'Cloud Synced' : firebaseSyncStatus === 'syncing' ? 'Syncing...' : 'Offline'}
           </span>
         </button>
 
+        {/* Quick Deposit Button */}
         <button
           type="button"
           onClick={() => {
@@ -244,12 +247,14 @@ export const Header: React.FC<HeaderProps> = ({
             setIsContributionModalOpen(true);
           }}
           disabled={currentMonth.status === 'finalized'}
-          className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-2 bg-white border border-slate-300 rounded-md text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3.5 py-1.5 sm:py-2 bg-white border border-slate-300 rounded-lg text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Add Deposit"
         >
-          <Wallet className="w-4 h-4 text-emerald-600" />
-          <span>Deposit</span>
+          <Wallet className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
+          <span className="hidden sm:inline">Deposit</span>
         </button>
 
+        {/* Quick Expense Button */}
         <button
           type="button"
           onClick={() => {
@@ -257,20 +262,22 @@ export const Header: React.FC<HeaderProps> = ({
             setIsExpenseModalOpen(true);
           }}
           disabled={currentMonth.status === 'finalized'}
-          className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-md text-xs sm:text-sm font-medium hover:bg-blue-700 cursor-pointer transition-colors shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 py-1.5 sm:py-2 bg-blue-600 text-white rounded-lg text-xs sm:text-sm font-medium hover:bg-blue-700 cursor-pointer transition-colors shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Add Expense"
         >
-          <Plus className="w-4 h-4" />
-          <span>Add Expense</span>
+          <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.5]" />
+          <span className="hidden sm:inline">Add Expense</span>
+          <span className="sm:hidden text-xs">Expense</span>
         </button>
 
         {/* Member Profile & Logout Section */}
-        <div className="relative flex items-center ml-1" ref={userMenuRef}>
+        <div className="relative flex items-center ml-0.5 sm:ml-1" ref={userMenuRef}>
           <div className="flex items-center rounded-lg border border-slate-200 bg-white shadow-2xs overflow-hidden hover:border-slate-300 transition-colors">
             {/* Profile Dropdown Trigger Button */}
             <button
               type="button"
               onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-              className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 hover:bg-slate-50 transition-colors cursor-pointer text-xs"
+              className="flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2.5 py-1 sm:py-1.5 hover:bg-slate-50 transition-colors cursor-pointer text-xs"
               title="User profile & security options"
               aria-expanded={isUserMenuOpen}
             >
@@ -285,26 +292,26 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 {currentUserInitials}
               </div>
-              <span className="font-semibold text-slate-700">
+              <span className="font-semibold text-slate-700 hidden sm:inline">
                 {currentUserShort}
               </span>
               <ChevronDown
-                className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
+                className={`w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400 transition-transform duration-200 ${
                   isUserMenuOpen ? 'rotate-180 text-blue-600' : ''
                 }`}
               />
             </button>
 
-            {/* Quick 1-Click Logout Button right in the section! */}
+            {/* Quick 1-Click Logout Button */}
             <div className="h-4 w-px bg-slate-200" />
             <button
               type="button"
               onClick={logoutMember}
-              className="px-2 sm:px-2.5 py-1.5 text-rose-600 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer text-xs font-semibold flex items-center gap-1"
+              className="px-1.5 sm:px-2.5 py-1 sm:py-1.5 text-rose-600 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer text-xs font-semibold flex items-center gap-1"
               title="Log Out (লগআউট)"
             >
               <LogOut className="w-3.5 h-3.5 text-rose-500" />
-              <span className="hidden sm:inline">Logout</span>
+              <span className="hidden md:inline">Logout</span>
             </button>
           </div>
 
@@ -341,6 +348,32 @@ export const Header: React.FC<HeaderProps> = ({
 
               {/* Quick Navigation Links */}
               <div className="space-y-0.5">
+                {/* Mobile Cloud Sync row */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    forceSyncToFirebase().catch(() => {});
+                  }}
+                  className="md:hidden w-full flex items-center justify-between px-2.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer text-left"
+                >
+                  <span className="flex items-center gap-2">
+                    <Cloud className="w-4 h-4 text-blue-500" />
+                    <span>Cloud Database</span>
+                  </span>
+                  <span className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+                    <span
+                      className={`w-2 h-2 rounded-full ${
+                        firebaseSyncStatus === 'connected'
+                          ? 'bg-emerald-500'
+                          : firebaseSyncStatus === 'syncing'
+                          ? 'bg-amber-400 animate-pulse'
+                          : 'bg-rose-500'
+                      }`}
+                    />
+                    {firebaseSyncStatus === 'connected' ? 'Synced' : firebaseSyncStatus === 'syncing' ? 'Syncing' : 'Sync'}
+                  </span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => {

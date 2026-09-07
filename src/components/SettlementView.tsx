@@ -466,7 +466,7 @@ export const SettlementView: React.FC = () => {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
+          <table className="w-full text-left text-xs border-collapse min-w-[540px]">
             <thead>
               <tr className="bg-slate-50 text-slate-600 font-bold uppercase tracking-wider text-[11px] border-b border-slate-200">
                 <th className="py-3 px-4">Financial Ledger Component</th>

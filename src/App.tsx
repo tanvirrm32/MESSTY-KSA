@@ -13,6 +13,7 @@ import { SettingsView } from './components/SettingsView';
 import { ExpenseModal } from './components/ExpenseModal';
 import { ContributionModal } from './components/ContributionModal';
 import { LoginScreen } from './components/LoginScreen';
+import { MobileBottomNav } from './components/MobileBottomNav';
 
 const AppContent: React.FC = () => {
   const { activeTab, appSettings, currentUser } = useMess();
@@ -40,8 +41,8 @@ const AppContent: React.FC = () => {
         />
 
         {/* Scrollable View Area */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-          <div className="max-w-7xl mx-auto pb-12">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-6 lg:p-8">
+          <div className="max-w-7xl mx-auto pb-24 lg:pb-12">
             {activeTab === 'dashboard' && <DashboardView />}
             {activeTab === 'transactions' && <TransactionsView />}
             {activeTab === 'contributions' && <ContributionsView />}
@@ -53,6 +54,9 @@ const AppContent: React.FC = () => {
             {activeTab === 'settings' && <SettingsView />}
           </div>
         </main>
+
+        {/* Mobile Bottom Navigation Bar */}
+        <MobileBottomNav onOpenMenu={() => setMobileSidebarOpen(true)} />
       </div>
 
       {/* Global Transaction Modals */}
