@@ -1,5 +1,5 @@
 import { MessMonth, MonthlySettlementSummary, Expense, Contribution, Category, AppSettings } from '../types';
-import { formatDate } from './calcEngine';
+import { formatDate, getExpenseFundStatus } from './calcEngine';
 
 export interface PrintReportOptions {
   month: MessMonth;
@@ -569,27 +569,32 @@ export function openPrintReportInNewTab({
         <thead>
           <tr>
             <th style="width: 12%;">Date</th>
-            <th style="width: 18%;">Category</th>
-            <th style="width: 26%;">Description</th>
+            <th style="width: 16%;">Category</th>
+            <th style="width: 24%;">Description</th>
             <th style="width: 14%;">Paid By</th>
-            <th class="text-right" style="width: 15%;">Amount</th>
-            <th class="text-right" style="width: 15%;">Type</th>
+            <th style="width: 10%;">Status</th>
+            <th class="text-right" style="width: 12%;">Amount</th>
+            <th class="text-right" style="width: 12%;">Type</th>
           </tr>
         </thead>
         <tbody>
           ${sortedExpenses
-            .map(
-              (exp) => `
+            .map((exp) => {
+              const status = getExpenseFundStatus(exp, expenses, contributions, month.id).statusText;
+              const statusColor = status === 'Paid' ? '#166534' : status === 'Partial' ? '#92400e' : '#9f1239';
+              const statusBg = status === 'Paid' ? '#dcfce7' : status === 'Partial' ? '#fef3c7' : '#ffe4e6';
+              return `
             <tr>
               <td>${formatDate(exp.date)}</td>
               <td>${categoryMap.get(exp.categoryId) || 'General'}</td>
               <td class="font-semibold">${exp.description}</td>
-              <td>${exp.paidBy === 'tanvir-rana' ? 'Tanvir Rana' : 'Zilam Jahid'}</td>
+              <td>${exp.paidBy === 'total-fund' ? 'Total Fund' : exp.paidBy === 'tanvir-rana' ? 'Tanvir Rana' : 'Zilam Jahid'}</td>
+              <td><span style="display:inline-block;padding:2px 6px;border-radius:4px;font-weight:700;font-size:10px;background:${statusBg};color:${statusColor};">${status}</span></td>
               <td class="text-right font-mono font-bold">${formatCurrency(exp.amount)}</td>
               <td class="text-right">${exp.expenseType === 'common' ? 'Common (50/50)' : 'Personal'}</td>
             </tr>
-          `
-            )
+          `;
+            })
             .join('')}
         </tbody>
       </table>
@@ -680,6 +685,7 @@ export function openPrintReportInNewTab({
             <th>Category</th>
             <th>Description</th>
             <th>Paid By</th>
+            <th>Status</th>
             <th class="text-right">Total Amount</th>
             <th class="text-right">Tanvir Share</th>
             <th class="text-right">Zilam Share</th>
@@ -687,19 +693,23 @@ export function openPrintReportInNewTab({
         </thead>
         <tbody>
           ${sortedExpenses
-            .map(
-              (exp) => `
+            .map((exp) => {
+              const status = getExpenseFundStatus(exp, expenses, contributions, month.id).statusText;
+              const statusColor = status === 'Paid' ? '#166534' : status === 'Partial' ? '#92400e' : '#9f1239';
+              const statusBg = status === 'Paid' ? '#dcfce7' : status === 'Partial' ? '#fef3c7' : '#ffe4e6';
+              return `
             <tr>
               <td>${formatDate(exp.date)}</td>
               <td>${categoryMap.get(exp.categoryId) || 'General'}</td>
               <td class="font-semibold">${exp.description}</td>
-              <td>${exp.paidBy === 'tanvir-rana' ? 'Tanvir Rana' : 'Zilam Jahid'}</td>
+              <td>${exp.paidBy === 'total-fund' ? 'Total Fund' : exp.paidBy === 'tanvir-rana' ? 'Tanvir Rana' : 'Zilam Jahid'}</td>
+              <td><span style="display:inline-block;padding:2px 6px;border-radius:4px;font-weight:700;font-size:10px;background:${statusBg};color:${statusColor};">${status}</span></td>
               <td class="text-right font-mono font-bold">${formatCurrency(exp.amount)}</td>
               <td class="text-right font-mono text-emerald">${formatCurrency(exp.tanvirShare)}</td>
               <td class="text-right font-mono text-blue">${formatCurrency(exp.zilamShare)}</td>
             </tr>
-          `
-            )
+          `;
+            })
             .join('')}
         </tbody>
       </table>
@@ -714,6 +724,8 @@ export function openPrintReportInNewTab({
         <div class="metric-card" style="border-left: 4px solid #047857;">
           <div class="metric-label" style="color: #047857; font-weight: 700;">Tanvir Rana - Actual Payments</div>
           <div class="metric-val" style="font-size: 20px; color: #047857; margin: 4px 0 10px 0;">${formatCurrency(settlement.tanvirStats.totalExpensesPaid)}</div>
+          <p style="font-size: 11px; color: #64748b;">Expenses Paid (Covered): <strong>${formatCurrency(settlement.tanvirStats.totalExpensesCovered)}</strong></p>
+          <p style="font-size: 11px; color: #64748b;">Covered from Total Fund: <strong>${formatCurrency(settlement.tanvirStats.expensesPaidFromFund)}</strong></p>
           <p style="font-size: 11px; color: #64748b;">Common Expenses Paid: <strong>${formatCurrency(settlement.tanvirStats.commonExpensesPaid)}</strong></p>
           <p style="font-size: 11px; color: #64748b;">Personal Expenses Paid: <strong>${formatCurrency(settlement.tanvirStats.personalExpensesPaid)}</strong></p>
           <p style="font-size: 11px; color: #047857;">Paid on behalf of Zilam: <strong>${formatCurrency(settlement.tanvirStats.amountPaidOnBehalfOfOther)}</strong></p>
@@ -721,6 +733,8 @@ export function openPrintReportInNewTab({
         <div class="metric-card" style="border-left: 4px solid #1d4ed8;">
           <div class="metric-label" style="color: #1d4ed8; font-weight: 700;">Zilam Jahid - Actual Payments</div>
           <div class="metric-val" style="font-size: 20px; color: #1d4ed8; margin: 4px 0 10px 0;">${formatCurrency(settlement.zilamStats.totalExpensesPaid)}</div>
+          <p style="font-size: 11px; color: #64748b;">Expenses Paid (Covered): <strong>${formatCurrency(settlement.zilamStats.totalExpensesCovered)}</strong></p>
+          <p style="font-size: 11px; color: #64748b;">Covered from Total Fund: <strong>${formatCurrency(settlement.zilamStats.expensesPaidFromFund)}</strong></p>
           <p style="font-size: 11px; color: #64748b;">Common Expenses Paid: <strong>${formatCurrency(settlement.zilamStats.commonExpensesPaid)}</strong></p>
           <p style="font-size: 11px; color: #64748b;">Personal Expenses Paid: <strong>${formatCurrency(settlement.zilamStats.personalExpensesPaid)}</strong></p>
           <p style="font-size: 11px; color: #1d4ed8;">Paid on behalf of Tanvir: <strong>${formatCurrency(settlement.zilamStats.amountPaidOnBehalfOfOther)}</strong></p>
@@ -735,24 +749,29 @@ export function openPrintReportInNewTab({
             <th>Category</th>
             <th>Description</th>
             <th>Paid By</th>
+            <th>Status</th>
             <th class="text-right">Amount</th>
             <th class="text-right">Split Type</th>
           </tr>
         </thead>
         <tbody>
           ${sortedExpenses
-            .map(
-              (exp) => `
+            .map((exp) => {
+              const status = getExpenseFundStatus(exp, expenses, contributions, month.id).statusText;
+              const statusColor = status === 'Paid' ? '#166534' : status === 'Partial' ? '#92400e' : '#9f1239';
+              const statusBg = status === 'Paid' ? '#dcfce7' : status === 'Partial' ? '#fef3c7' : '#ffe4e6';
+              return `
             <tr>
               <td>${formatDate(exp.date)}</td>
               <td>${categoryMap.get(exp.categoryId) || 'General'}</td>
               <td class="font-semibold">${exp.description}</td>
-              <td>${exp.paidBy === 'tanvir-rana' ? 'Tanvir Rana' : 'Zilam Jahid'}</td>
+              <td>${exp.paidBy === 'total-fund' ? 'Total Fund' : exp.paidBy === 'tanvir-rana' ? 'Tanvir Rana' : 'Zilam Jahid'}</td>
+              <td><span style="display:inline-block;padding:2px 6px;border-radius:4px;font-weight:700;font-size:10px;background:${statusBg};color:${statusColor};">${status}</span></td>
               <td class="text-right font-mono font-bold">${formatCurrency(exp.amount)}</td>
               <td class="text-right">${exp.expenseType === 'common' ? 'Common (50/50)' : 'Personal'}</td>
             </tr>
-          `
-            )
+          `;
+            })
             .join('')}
         </tbody>
       </table>

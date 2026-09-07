@@ -113,6 +113,25 @@ export interface MemberMonthlyStats {
   // Total ledger balance = openingBalance + directContributions + netExpensePosition
   // (which is identical to openingBalance + totalContributions - totalExpenseResponsibility)
   currentAccountBalance: number;
+  // Expense coverage through fund contributions + out-of-pocket
+  expensesPaidFromFund: number;
+  totalExpensesCovered: number;
+  unpaidExpenseAmount: number;
+  isFullyPaid: boolean;
+  paymentStatus: 'Paid' | 'Unpaid' | 'Partial';
+}
+
+export interface SettlementListItem {
+  memberId: 'tanvir-rana' | 'zilam-jahid';
+  name: string;
+  fullName: string;
+  action: 'receives' | 'owes' | 'settled';
+  actionLabel: 'Receives' | 'Owes' | 'Settled';
+  amount: number;
+  sourceNote?: string;
+  dotColor: string;
+  badgeClass: string;
+  amountColor: string;
 }
 
 export interface MonthlySettlementSummary {
@@ -137,6 +156,7 @@ export interface MonthlySettlementSummary {
   settlementReceiver: 'tanvir-rana' | 'zilam-jahid' | null;
   settlementAmount: number;
   settlementMessage: string;
+  settlementItems: SettlementListItem[];
   isBalanced: boolean;
 }
 

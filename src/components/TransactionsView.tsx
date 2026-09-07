@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useMess } from '../context/MessContext';
 import { Expense } from '../types';
-import { formatCurrency, formatDate } from '../utils/calcEngine';
+import { formatCurrency, formatDate, getExpenseFundStatus } from '../utils/calcEngine';
 import { exportExpensesToCSV } from '../utils/exportUtils';
 import { ConfirmModal } from './ConfirmModal';
 
@@ -423,6 +423,7 @@ export const TransactionsView: React.FC = () => {
                 <th className="py-2.5 px-3">Description</th>
                 <th className="py-2.5 px-3 text-right">Amount</th>
                 <th className="py-2.5 px-3">Paid By</th>
+                <th className="py-2.5 px-3">Status</th>
                 <th className="py-2.5 px-3">Type</th>
                 <th className="py-2.5 px-3">Expense Split (T / Z)</th>
                 <th className="py-2.5 px-3">Notes</th>
@@ -432,12 +433,19 @@ export const TransactionsView: React.FC = () => {
             <tbody className="divide-y divide-slate-100">
               {filteredExpenses.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-12 text-center text-slate-400">
+                  <td colSpan={11} className="py-12 text-center text-slate-400">
                     No expenses found matching the filter criteria.
                   </td>
                 </tr>
               ) : (
-                filteredExpenses.map((exp) => (
+                filteredExpenses.map((exp) => {
+                  const fundStatus = getExpenseFundStatus(
+                    exp,
+                    db.expenses,
+                    db.contributions,
+                    exp.monthId
+                  );
+                  return (
                   <tr
                     key={exp.id}
                     className="hover:bg-slate-50/70 transition-colors group"
@@ -505,6 +513,26 @@ export const TransactionsView: React.FC = () => {
                       </span>
                     </td>
 
+                    {/* Status */}
+                    <td className="py-3 px-3 whitespace-nowrap">
+                      {fundStatus.statusText === 'Paid' ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                          Paid
+                        </span>
+                      ) : fundStatus.statusText === 'Partial' ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                          Partial
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                          Unpaid
+                        </span>
+                      )}
+                    </td>
+
                     {/* Type */}
                     <td className="py-3 px-3 whitespace-nowrap">
                       <span
@@ -566,7 +594,8 @@ export const TransactionsView: React.FC = () => {
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>

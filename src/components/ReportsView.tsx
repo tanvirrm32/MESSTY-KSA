@@ -11,7 +11,7 @@ import {
   Layers,
 } from 'lucide-react';
 import { useMess } from '../context/MessContext';
-import { formatCurrency, formatDate } from '../utils/calcEngine';
+import { formatCurrency, formatDate, getExpenseFundStatus } from '../utils/calcEngine';
 import {
   exportExpensesToCSV,
   exportContributionsToCSV,
@@ -432,24 +432,54 @@ export const ReportsView: React.FC = () => {
                   <th className="py-2 px-3 text-left border-b border-slate-200">Description</th>
                   <th className="py-2 px-3 text-right border-b border-slate-200">Amount</th>
                   <th className="py-2 px-3 text-left border-b border-slate-200">Paid By</th>
+                  <th className="py-2 px-3 text-left border-b border-slate-200">Status</th>
                   <th className="py-2 px-3 text-left border-b border-slate-200">Type</th>
                   <th className="py-2 px-3 text-right border-b border-slate-200">Tanvir Share</th>
                   <th className="py-2 px-3 text-right border-b border-slate-200">Zilam Share</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {monthExpenses.map((exp) => (
-                  <tr key={exp.id}>
-                    <td className="py-1.5 px-3 font-medium text-slate-700">{formatDate(exp.date)}</td>
-                    <td className="py-1.5 px-3 text-slate-600">{categoryMap.get(exp.categoryId) || 'General'}</td>
-                    <td className="py-1.5 px-3 font-medium text-slate-800">{exp.description}</td>
-                    <td className="py-1.5 px-3 text-right font-mono font-bold text-slate-900">{formatCurrency(exp.amount)}</td>
-                    <td className="py-1.5 px-3 text-slate-700">{exp.paidBy === 'tanvir-rana' ? 'Tanvir Rana' : 'Zilam Jahid'}</td>
-                    <td className="py-1.5 px-3 text-slate-600">{exp.expenseType === 'common' ? 'Common' : 'Personal'}</td>
-                    <td className="py-1.5 px-3 text-right font-mono text-emerald-700">{formatCurrency(exp.tanvirShare)}</td>
-                    <td className="py-1.5 px-3 text-right font-mono text-blue-700">{formatCurrency(exp.zilamShare)}</td>
-                  </tr>
-                ))}
+                {monthExpenses.map((exp) => {
+                  const fundStatus = getExpenseFundStatus(
+                    exp,
+                    db.expenses,
+                    db.contributions,
+                    currentMonth.id
+                  );
+                  return (
+                    <tr key={exp.id}>
+                      <td className="py-1.5 px-3 font-medium text-slate-700 whitespace-nowrap">{formatDate(exp.date)}</td>
+                      <td className="py-1.5 px-3 text-slate-600">{categoryMap.get(exp.categoryId) || 'General'}</td>
+                      <td className="py-1.5 px-3 font-medium text-slate-800">{exp.description}</td>
+                      <td className="py-1.5 px-3 text-right font-mono font-bold text-slate-900">{formatCurrency(exp.amount)}</td>
+                      <td className="py-1.5 px-3 text-slate-700 whitespace-nowrap">
+                        {exp.paidBy === 'total-fund'
+                          ? 'Total Fund'
+                          : exp.paidBy === 'tanvir-rana'
+                          ? 'Tanvir Rana'
+                          : 'Zilam Jahid'}
+                      </td>
+                      <td className="py-1.5 px-3 whitespace-nowrap">
+                        {fundStatus.statusText === 'Paid' ? (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            Paid
+                          </span>
+                        ) : fundStatus.statusText === 'Partial' ? (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                            Partial
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                            Unpaid
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-1.5 px-3 text-slate-600">{exp.expenseType === 'common' ? 'Common' : 'Personal'}</td>
+                      <td className="py-1.5 px-3 text-right font-mono text-emerald-700">{formatCurrency(exp.tanvirShare)}</td>
+                      <td className="py-1.5 px-3 text-right font-mono text-blue-700">{formatCurrency(exp.zilamShare)}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -461,8 +491,16 @@ export const ReportsView: React.FC = () => {
             <div className="grid grid-cols-2 gap-4">
               <div className="p-4 bg-emerald-50/60 border border-emerald-200 rounded-xl text-xs">
                 <h5 className="font-bold text-emerald-950 text-sm">Tanvir Rana Actual Payments</h5>
-                <p className="text-emerald-800 mt-1">Total Paid: <strong className="text-base font-mono">{formatCurrency(currentSettlement.tanvirStats.totalExpensesPaid)}</strong></p>
+                <p className="text-emerald-800 mt-1">Total Paid (Direct): <strong className="text-base font-mono">{formatCurrency(currentSettlement.tanvirStats.totalExpensesPaid)}</strong></p>
                 <div className="mt-3 space-y-1 text-slate-600">
+                  <div className="flex justify-between">
+                    <span>Expenses Paid (Covered):</span>
+                    <span className="font-mono font-bold text-emerald-700">{formatCurrency(currentSettlement.tanvirStats.totalExpensesCovered)} ({currentSettlement.tanvirStats.paymentStatus})</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Covered from Fund:</span>
+                    <span className="font-mono">{formatCurrency(currentSettlement.tanvirStats.expensesPaidFromFund)}</span>
+                  </div>
                   <div className="flex justify-between">
                     <span>Common Expenses Paid:</span>
                     <span className="font-mono">{formatCurrency(currentSettlement.tanvirStats.commonExpensesPaid)}</span>
@@ -480,8 +518,16 @@ export const ReportsView: React.FC = () => {
 
               <div className="p-4 bg-blue-50/60 border border-blue-200 rounded-xl text-xs">
                 <h5 className="font-bold text-blue-950 text-sm">Zilam Jahid Actual Payments</h5>
-                <p className="text-blue-800 mt-1">Total Paid: <strong className="text-base font-mono">{formatCurrency(currentSettlement.zilamStats.totalExpensesPaid)}</strong></p>
+                <p className="text-blue-800 mt-1">Total Paid (Direct): <strong className="text-base font-mono">{formatCurrency(currentSettlement.zilamStats.totalExpensesPaid)}</strong></p>
                 <div className="mt-3 space-y-1 text-slate-600">
+                  <div className="flex justify-between">
+                    <span>Expenses Paid (Covered):</span>
+                    <span className="font-mono font-bold text-blue-700">{formatCurrency(currentSettlement.zilamStats.totalExpensesCovered)} ({currentSettlement.zilamStats.paymentStatus})</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Covered from Fund:</span>
+                    <span className="font-mono">{formatCurrency(currentSettlement.zilamStats.expensesPaidFromFund)}</span>
+                  </div>
                   <div className="flex justify-between">
                     <span>Common Expenses Paid:</span>
                     <span className="font-mono">{formatCurrency(currentSettlement.zilamStats.commonExpensesPaid)}</span>
@@ -556,15 +602,21 @@ export const ReportsView: React.FC = () => {
               <div className="border border-slate-200 p-4 rounded-xl space-y-2">
                 <h5 className="font-bold text-slate-900 text-sm">Tanvir Rana Position</h5>
                 <div className="flex justify-between py-1 border-b border-slate-100">
-                  <span>Actual Paid:</span>
-                  <span className="font-mono font-bold text-slate-900">{formatCurrency(currentSettlement.tanvirStats.totalExpensesPaid)}</span>
+                  <span>Expenses Paid (Covered):</span>
+                  <span className="font-mono font-bold text-slate-900">{formatCurrency(currentSettlement.tanvirStats.totalExpensesCovered)}</span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100">
                   <span>Expense Responsibility:</span>
                   <span className="font-mono text-slate-900">{formatCurrency(currentSettlement.tanvirStats.totalExpenseResponsibility)}</span>
                 </div>
+                <div className="flex justify-between py-1 border-b border-slate-100">
+                  <span>Unpaid Cost (Crossed):</span>
+                  <span className={`font-mono font-bold ${currentSettlement.tanvirStats.unpaidExpenseAmount > 0 ? 'text-rose-600' : 'text-slate-500'}`}>
+                    {currentSettlement.tanvirStats.unpaidExpenseAmount > 0 ? formatCurrency(currentSettlement.tanvirStats.unpaidExpenseAmount) : 'SAR 0.00 (Paid)'}
+                  </span>
+                </div>
                 <div className="flex justify-between py-1.5 font-bold bg-slate-50 px-2 rounded">
-                  <span>Net Position:</span>
+                  <span>Expense Net Standing:</span>
                   <span className={currentSettlement.tanvirStats.netExpensePosition >= 0 ? 'text-emerald-700 font-mono' : 'text-rose-700 font-mono'}>
                     {formatCurrency(currentSettlement.tanvirStats.netExpensePosition)}
                   </span>
@@ -574,15 +626,21 @@ export const ReportsView: React.FC = () => {
               <div className="border border-slate-200 p-4 rounded-xl space-y-2">
                 <h5 className="font-bold text-slate-900 text-sm">Zilam Jahid Position</h5>
                 <div className="flex justify-between py-1 border-b border-slate-100">
-                  <span>Actual Paid:</span>
-                  <span className="font-mono font-bold text-slate-900">{formatCurrency(currentSettlement.zilamStats.totalExpensesPaid)}</span>
+                  <span>Expenses Paid (Covered):</span>
+                  <span className="font-mono font-bold text-slate-900">{formatCurrency(currentSettlement.zilamStats.totalExpensesCovered)}</span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100">
                   <span>Expense Responsibility:</span>
                   <span className="font-mono text-slate-900">{formatCurrency(currentSettlement.zilamStats.totalExpenseResponsibility)}</span>
                 </div>
+                <div className="flex justify-between py-1 border-b border-slate-100">
+                  <span>Unpaid Cost (Crossed):</span>
+                  <span className={`font-mono font-bold ${currentSettlement.zilamStats.unpaidExpenseAmount > 0 ? 'text-rose-600' : 'text-slate-500'}`}>
+                    {currentSettlement.zilamStats.unpaidExpenseAmount > 0 ? formatCurrency(currentSettlement.zilamStats.unpaidExpenseAmount) : 'SAR 0.00 (Paid)'}
+                  </span>
+                </div>
                 <div className="flex justify-between py-1.5 font-bold bg-slate-50 px-2 rounded">
-                  <span>Net Position:</span>
+                  <span>Expense Net Standing:</span>
                   <span className={currentSettlement.zilamStats.netExpensePosition >= 0 ? 'text-emerald-700 font-mono' : 'text-rose-700 font-mono'}>
                     {formatCurrency(currentSettlement.zilamStats.netExpensePosition)}
                   </span>

@@ -217,19 +217,24 @@ export const SettlementView: React.FC = () => {
                 {formatCurrency(currentSettlement.tanvirStats.totalContributions)}
               </span>
             </div>
-            <div className="flex justify-between py-1.5">
-              <span className="text-slate-600">Total Out-of-Pocket Expenses Paid:</span>
-              <span className="font-mono font-bold text-slate-900">
-                {formatCurrency(currentSettlement.tanvirStats.totalExpensesPaid)}
-              </span>
+            <div className="flex justify-between py-1.5 items-center">
+              <span className="text-slate-600">Expenses Paid (Covered):</span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-mono font-bold text-slate-900">
+                  {formatCurrency(currentSettlement.tanvirStats.totalExpensesCovered)}
+                </span>
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  {currentSettlement.tanvirStats.isFullyPaid ? 'Paid' : 'Partial'}
+                </span>
+              </div>
             </div>
             <div className="flex justify-between py-1.5 pl-3 text-slate-500">
-              <span>• Common Expenses Paid:</span>
-              <span className="font-mono">{formatCurrency(currentSettlement.tanvirStats.commonExpensesPaid)}</span>
+              <span>• Covered from Total Fund:</span>
+              <span className="font-mono">{formatCurrency(currentSettlement.tanvirStats.expensesPaidFromFund)}</span>
             </div>
             <div className="flex justify-between py-1.5 pl-3 text-slate-500">
-              <span>• Personal Expenses Paid:</span>
-              <span className="font-mono">{formatCurrency(currentSettlement.tanvirStats.personalExpensesPaid)}</span>
+              <span>• Direct Out-of-Pocket Paid:</span>
+              <span className="font-mono">{formatCurrency(currentSettlement.tanvirStats.totalExpensesPaid)}</span>
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-slate-600">Common Expense Share (Responsibility):</span>
@@ -249,8 +254,25 @@ export const SettlementView: React.FC = () => {
                 {formatCurrency(currentSettlement.tanvirStats.totalExpenseResponsibility)}
               </span>
             </div>
+            <div className="flex justify-between py-1.5 items-center">
+              <span className="text-slate-600">Unpaid Cost (Crossed Contribution):</span>
+              <div className="flex items-center gap-1.5">
+                <span className={`font-mono font-bold ${currentSettlement.tanvirStats.unpaidExpenseAmount > 0 ? 'text-rose-600' : 'text-slate-500'}`}>
+                  {currentSettlement.tanvirStats.unpaidExpenseAmount > 0
+                    ? `- ${formatCurrency(currentSettlement.tanvirStats.unpaidExpenseAmount)}`
+                    : 'SAR 0.00'}
+                </span>
+                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                  currentSettlement.tanvirStats.unpaidExpenseAmount > 0
+                    ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                }`}>
+                  {currentSettlement.tanvirStats.unpaidExpenseAmount > 0 ? 'Unpaid' : 'Paid in Full'}
+                </span>
+              </div>
+            </div>
             <div className="flex justify-between py-2 bg-slate-50 px-2 rounded-lg font-bold">
-              <span className="text-slate-800">Net Expense Position (Paid − Share):</span>
+              <span className="text-slate-800">Net Expense Standing:</span>
               <span
                 className={`font-mono ${
                   currentSettlement.tanvirStats.netExpensePosition >= 0
@@ -260,6 +282,9 @@ export const SettlementView: React.FC = () => {
               >
                 {currentSettlement.tanvirStats.netExpensePosition >= 0 ? '+' : ''}
                 {formatCurrency(currentSettlement.tanvirStats.netExpensePosition)}
+                <span className="text-[10px] font-normal text-slate-500 ml-1">
+                  {currentSettlement.tanvirStats.netExpensePosition >= 0 ? '(Surplus / Paid)' : '(Underpaid)'}
+                </span>
               </span>
             </div>
             <div className="flex justify-between py-2 bg-emerald-50/60 px-2 rounded-lg font-bold">
@@ -331,19 +356,24 @@ export const SettlementView: React.FC = () => {
                 {formatCurrency(currentSettlement.zilamStats.totalContributions)}
               </span>
             </div>
-            <div className="flex justify-between py-1.5">
-              <span className="text-slate-600">Total Out-of-Pocket Expenses Paid:</span>
-              <span className="font-mono font-bold text-slate-900">
-                {formatCurrency(currentSettlement.zilamStats.totalExpensesPaid)}
-              </span>
+            <div className="flex justify-between py-1.5 items-center">
+              <span className="text-slate-600">Expenses Paid (Covered):</span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-mono font-bold text-slate-900">
+                  {formatCurrency(currentSettlement.zilamStats.totalExpensesCovered)}
+                </span>
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  {currentSettlement.zilamStats.isFullyPaid ? 'Paid' : 'Partial'}
+                </span>
+              </div>
             </div>
             <div className="flex justify-between py-1.5 pl-3 text-slate-500">
-              <span>• Common Expenses Paid:</span>
-              <span className="font-mono">{formatCurrency(currentSettlement.zilamStats.commonExpensesPaid)}</span>
+              <span>• Covered from Total Fund:</span>
+              <span className="font-mono">{formatCurrency(currentSettlement.zilamStats.expensesPaidFromFund)}</span>
             </div>
             <div className="flex justify-between py-1.5 pl-3 text-slate-500">
-              <span>• Personal Expenses Paid:</span>
-              <span className="font-mono">{formatCurrency(currentSettlement.zilamStats.personalExpensesPaid)}</span>
+              <span>• Direct Out-of-Pocket Paid:</span>
+              <span className="font-mono">{formatCurrency(currentSettlement.zilamStats.totalExpensesPaid)}</span>
             </div>
             <div className="flex justify-between py-1.5">
               <span className="text-slate-600">Common Expense Share (Responsibility):</span>
@@ -363,8 +393,25 @@ export const SettlementView: React.FC = () => {
                 {formatCurrency(currentSettlement.zilamStats.totalExpenseResponsibility)}
               </span>
             </div>
+            <div className="flex justify-between py-1.5 items-center">
+              <span className="text-slate-600">Unpaid Cost (Crossed Contribution):</span>
+              <div className="flex items-center gap-1.5">
+                <span className={`font-mono font-bold ${currentSettlement.zilamStats.unpaidExpenseAmount > 0 ? 'text-rose-600' : 'text-slate-500'}`}>
+                  {currentSettlement.zilamStats.unpaidExpenseAmount > 0
+                    ? `- ${formatCurrency(currentSettlement.zilamStats.unpaidExpenseAmount)}`
+                    : 'SAR 0.00'}
+                </span>
+                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                  currentSettlement.zilamStats.unpaidExpenseAmount > 0
+                    ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                }`}>
+                  {currentSettlement.zilamStats.unpaidExpenseAmount > 0 ? 'Unpaid' : 'Paid in Full'}
+                </span>
+              </div>
+            </div>
             <div className="flex justify-between py-2 bg-slate-50 px-2 rounded-lg font-bold">
-              <span className="text-slate-800">Net Expense Position (Paid − Share):</span>
+              <span className="text-slate-800">Net Expense Standing:</span>
               <span
                 className={`font-mono ${
                   currentSettlement.zilamStats.netExpensePosition >= 0
@@ -374,6 +421,9 @@ export const SettlementView: React.FC = () => {
               >
                 {currentSettlement.zilamStats.netExpensePosition >= 0 ? '+' : ''}
                 {formatCurrency(currentSettlement.zilamStats.netExpensePosition)}
+                <span className="text-[10px] font-normal text-slate-500 ml-1">
+                  {currentSettlement.zilamStats.netExpensePosition >= 0 ? '(Surplus / Paid)' : '(Underpaid)'}
+                </span>
               </span>
             </div>
             <div className="flex justify-between py-2 bg-blue-50/60 px-2 rounded-lg font-bold">

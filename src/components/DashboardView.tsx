@@ -9,9 +9,10 @@ import {
   Receipt,
   Scale,
   Calendar,
+  Wallet,
 } from 'lucide-react';
 import { useMess } from '../context/MessContext';
-import { formatCurrency, formatDate } from '../utils/calcEngine';
+import { formatCurrency, formatDate, getExpenseFundStatus } from '../utils/calcEngine';
 
 export const DashboardView: React.FC = () => {
   const {
@@ -53,42 +54,101 @@ export const DashboardView: React.FC = () => {
       {/* Summary Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Card 1: Total Common Expense */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+        <div className="bg-gradient-to-br from-white via-slate-50/50 to-indigo-50/30 p-4 rounded-xl border border-indigo-100/80 shadow-xs hover:shadow-sm transition-all flex flex-col justify-between">
           <div>
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-              Total Common Expense
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-indigo-50 border border-indigo-200/60 flex items-center justify-center text-indigo-600 shrink-0">
+                  <Receipt className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-slate-800 uppercase tracking-wider leading-none">
+                    Total Common Expense
+                  </div>
+                  <div className="text-[10px] text-slate-400 font-medium mt-0.5">
+                    Shared Mess Living Cost
+                  </div>
+                </div>
+              </div>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/80 shrink-0">
+                50/50 Split
+              </span>
             </div>
-            <div className="text-2xl font-bold text-slate-900 tracking-tight">
-              {formatCurrency(currentSettlement.totalCommonExpenses)}
+
+            <div className="my-1.5 flex items-baseline justify-between">
+              <div className="text-2xl sm:text-[26px] font-extrabold text-slate-900 tracking-tight font-mono">
+                {formatCurrency(currentSettlement.totalCommonExpenses)}
+              </div>
+              <span className="text-[10px] font-medium text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200/80">
+                {monthExpenses.length} {monthExpenses.length === 1 ? 'item' : 'items'}
+              </span>
             </div>
           </div>
-          <div className="text-[10px] text-slate-500 mt-2 flex items-center justify-between border-t border-slate-100 pt-2">
-            <span>50% Share Per Member</span>
-            <span className="font-semibold text-slate-700">
+
+          <div className="text-xs text-slate-600 mt-2 flex items-center justify-between border-t border-indigo-100/70 pt-2.5">
+            <span className="flex items-center gap-1.5 text-[11px] font-medium text-slate-600">
+              <Users className="w-3.5 h-3.5 text-indigo-500" />
+              50% Share Per Member
+            </span>
+            <span className="font-mono font-bold text-indigo-700 bg-indigo-50/90 px-2 py-0.5 rounded border border-indigo-200/60 shadow-2xs">
               {formatCurrency(currentSettlement.commonExpensePerMember)}
             </span>
           </div>
         </div>
 
         {/* Card 2: Total Contributions */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+        <div className="bg-gradient-to-br from-white via-slate-50/50 to-emerald-50/30 p-4 rounded-xl border border-emerald-100/80 shadow-xs hover:shadow-sm transition-all flex flex-col justify-between">
           <div>
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-              Total Contributions
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-emerald-50 border border-emerald-200/60 flex items-center justify-center text-emerald-600 shrink-0">
+                  <Wallet className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-slate-800 uppercase tracking-wider leading-none">
+                    Total Contributions
+                  </div>
+                  <div className="text-[10px] text-slate-400 font-medium mt-0.5">
+                    Collected Member Fund
+                  </div>
+                </div>
+              </div>
+              <span
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${
+                  currentSettlement.totalContributions - currentSettlement.totalExpenses >= 0
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80'
+                    : 'bg-rose-50 text-rose-700 border-rose-200/80'
+                }`}
+              >
+                {currentSettlement.totalContributions - currentSettlement.totalExpenses >= 0
+                  ? 'Surplus Reserve'
+                  : 'Fund Deficit'}
+              </span>
             </div>
-            <div className="text-2xl font-bold text-emerald-600 tracking-tight">
-              {formatCurrency(currentSettlement.totalContributions)}
+
+            <div className="my-1.5 flex items-baseline justify-between">
+              <div className="text-2xl sm:text-[26px] font-extrabold text-emerald-600 tracking-tight font-mono">
+                {formatCurrency(currentSettlement.totalContributions)}
+              </div>
+              <span className="text-[10px] font-medium text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200/80">
+                {monthContributions.length} {monthContributions.length === 1 ? 'deposit' : 'deposits'}
+              </span>
             </div>
           </div>
-          <div className="text-[10px] text-slate-500 mt-2 flex items-center justify-between border-t border-slate-100 pt-2">
-            <span>Surplus / Cash Reserve</span>
+
+          <div className="text-xs text-slate-600 mt-2 flex items-center justify-between border-t border-emerald-100/70 pt-2.5">
+            <span className="flex items-center gap-1.5 text-[11px] font-medium text-slate-600">
+              <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
+              Surplus / Cash Reserve
+            </span>
             <span
-              className={`font-semibold ${
+              className={`font-mono font-bold px-2 py-0.5 rounded border shadow-2xs ${
                 currentSettlement.totalContributions - currentSettlement.totalExpenses >= 0
-                  ? 'text-emerald-700'
-                  : 'text-rose-600'
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200/60'
+                  : 'bg-rose-50 text-rose-700 border-rose-200/60'
               }`}
             >
+              {currentSettlement.totalContributions - currentSettlement.totalExpenses >= 0 ? '+' : ''}
               {formatCurrency(currentSettlement.totalContributions - currentSettlement.totalExpenses)}
             </span>
           </div>
@@ -97,14 +157,52 @@ export const DashboardView: React.FC = () => {
         {/* Card 3: Current Settlement (High Density Dark Accent) */}
         <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-sm text-white flex flex-col justify-between">
           <div>
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
-              Current Settlement
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                Current Settlement
+              </div>
+              <span className="text-[10px] font-semibold text-amber-400/90 bg-amber-950/60 border border-amber-800/60 px-1.5 py-0.5 rounded">
+                {currentSettlement.isBalanced ? 'Balanced' : 'Breakdown'}
+              </span>
             </div>
-            <div className="text-lg font-bold text-amber-400 leading-snug">
-              {currentSettlement.isBalanced
-                ? 'Accounts Balanced'
-                : currentSettlement.settlementMessage}
-            </div>
+
+            {/* List System for Settlement Breakdown */}
+            {currentSettlement.settlementItems && currentSettlement.settlementItems.length > 0 ? (
+              <ul className="space-y-1.5 my-1">
+                {currentSettlement.settlementItems.map((item) => (
+                  <li
+                    key={item.memberId}
+                    className="flex items-center justify-between text-xs py-1.5 px-2.5 rounded-lg bg-slate-800/80 border border-slate-700/60"
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${item.dotColor}`} />
+                      <span className="font-semibold text-slate-100 shrink-0 text-xs">{item.name}</span>
+                      <span
+                        className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0 ${item.badgeClass}`}
+                      >
+                        {item.actionLabel}
+                      </span>
+                      {item.sourceNote && (
+                        <span className="text-[10px] text-slate-400 truncate hidden xl:inline">
+                          ({item.sourceNote})
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-right shrink-0 ml-2">
+                      <span className={`font-mono font-bold text-sm ${item.amountColor}`}>
+                        {formatCurrency(item.amount)}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="text-lg font-bold text-amber-400 leading-snug">
+                {currentSettlement.isBalanced
+                  ? 'Accounts Balanced'
+                  : currentSettlement.settlementMessage}
+              </div>
+            )}
           </div>
           <div className="mt-2 pt-2 border-t border-slate-800 flex items-center justify-between">
             <span className="text-xs text-slate-400">
@@ -134,15 +232,18 @@ export const DashboardView: React.FC = () => {
               <span className="text-xs text-slate-500 italic uppercase">Ledger Summary</span>
             </div>
 
-            <div className="p-4 grid grid-cols-2 gap-y-3 text-sm">
+            <div className="p-4 grid grid-cols-2 gap-y-2.5 text-sm">
               <div className="text-slate-500">Total Contributions</div>
               <div className="text-right font-bold text-emerald-600 font-mono">
                 {formatCurrency(currentSettlement.tanvirStats.totalContributions)}
               </div>
 
-              <div className="text-slate-500">Actual Expenses Paid</div>
-              <div className="text-right font-bold text-slate-800 font-mono">
-                {formatCurrency(currentSettlement.tanvirStats.totalExpensesPaid)}
+              <div className="text-slate-500">Expenses Paid (Covered)</div>
+              <div className="text-right font-bold text-slate-800 font-mono flex items-center justify-end gap-1.5">
+                {formatCurrency(currentSettlement.tanvirStats.totalExpensesCovered)}
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  {currentSettlement.tanvirStats.isFullyPaid ? 'Paid' : 'Partial'}
+                </span>
               </div>
 
               <div className="text-slate-500">Common Share (50%)</div>
@@ -159,23 +260,45 @@ export const DashboardView: React.FC = () => {
                 </>
               )}
 
+              <div className="text-slate-500">Unpaid Cost (Crossed)</div>
+              <div
+                className={`text-right font-mono font-bold flex items-center justify-end gap-1.5 ${
+                  currentSettlement.tanvirStats.unpaidExpenseAmount > 0
+                    ? 'text-rose-600'
+                    : 'text-slate-400'
+                }`}
+              >
+                {currentSettlement.tanvirStats.unpaidExpenseAmount > 0
+                  ? `- ${formatCurrency(currentSettlement.tanvirStats.unpaidExpenseAmount)}`
+                  : 'SAR 0.00'}
+                <span
+                  className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                    currentSettlement.tanvirStats.unpaidExpenseAmount > 0
+                      ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                      : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  }`}
+                >
+                  {currentSettlement.tanvirStats.unpaidExpenseAmount > 0 ? 'Unpaid' : 'Paid in Full'}
+                </span>
+              </div>
+
               <div className="col-span-2 border-t border-slate-100 pt-3 flex justify-between items-center">
-                <span className="font-semibold text-xs text-slate-500">Expense Net (Paid − Share)</span>
+                <span className="font-semibold text-xs text-slate-500">Expense Net Standing</span>
                 <span
                   className={`font-bold font-mono ${
-                    currentSettlement.tanvirStats.netExpensePosition >= 0
+                    currentSettlement.tanvirStats.currentAccountBalance >= 0
                       ? 'text-emerald-600'
                       : 'text-rose-600'
                   }`}
                 >
-                  {currentSettlement.tanvirStats.netExpensePosition >= 0 ? '+ ' : '- '}
-                  {formatCurrency(Math.abs(currentSettlement.tanvirStats.netExpensePosition))}
+                  {currentSettlement.tanvirStats.currentAccountBalance >= 0 ? '+ ' : '- '}
+                  {formatCurrency(Math.abs(currentSettlement.tanvirStats.currentAccountBalance))}
                   {' '}
                   <span className="text-[11px] font-normal text-slate-500">
-                    {currentSettlement.tanvirStats.netExpensePosition > 0.005
-                      ? '(Overpaid)'
-                      : currentSettlement.tanvirStats.netExpensePosition < -0.005
-                      ? '(Underpaid)'
+                    {currentSettlement.tanvirStats.currentAccountBalance > 0.005
+                      ? '(Surplus / Paid)'
+                      : currentSettlement.tanvirStats.currentAccountBalance < -0.005
+                      ? `(${formatCurrency(currentSettlement.tanvirStats.unpaidExpenseAmount)} Unpaid)`
                       : '(Settled)'}
                   </span>
                 </span>
@@ -214,15 +337,18 @@ export const DashboardView: React.FC = () => {
               <span className="text-xs text-slate-500 italic uppercase">Ledger Summary</span>
             </div>
 
-            <div className="p-4 grid grid-cols-2 gap-y-3 text-sm">
+            <div className="p-4 grid grid-cols-2 gap-y-2.5 text-sm">
               <div className="text-slate-500">Total Contributions</div>
               <div className="text-right font-bold text-emerald-600 font-mono">
                 {formatCurrency(currentSettlement.zilamStats.totalContributions)}
               </div>
 
-              <div className="text-slate-500">Actual Expenses Paid</div>
-              <div className="text-right font-bold text-slate-800 font-mono">
-                {formatCurrency(currentSettlement.zilamStats.totalExpensesPaid)}
+              <div className="text-slate-500">Expenses Paid (Covered)</div>
+              <div className="text-right font-bold text-slate-800 font-mono flex items-center justify-end gap-1.5">
+                {formatCurrency(currentSettlement.zilamStats.totalExpensesCovered)}
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  {currentSettlement.zilamStats.isFullyPaid ? 'Paid' : 'Partial'}
+                </span>
               </div>
 
               <div className="text-slate-500">Common Share (50%)</div>
@@ -239,23 +365,45 @@ export const DashboardView: React.FC = () => {
                 </>
               )}
 
+              <div className="text-slate-500">Unpaid Cost (Crossed)</div>
+              <div
+                className={`text-right font-mono font-bold flex items-center justify-end gap-1.5 ${
+                  currentSettlement.zilamStats.unpaidExpenseAmount > 0
+                    ? 'text-rose-600'
+                    : 'text-slate-400'
+                }`}
+              >
+                {currentSettlement.zilamStats.unpaidExpenseAmount > 0
+                  ? `- ${formatCurrency(currentSettlement.zilamStats.unpaidExpenseAmount)}`
+                  : 'SAR 0.00'}
+                <span
+                  className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                    currentSettlement.zilamStats.unpaidExpenseAmount > 0
+                      ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                      : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  }`}
+                >
+                  {currentSettlement.zilamStats.unpaidExpenseAmount > 0 ? 'Unpaid' : 'Paid in Full'}
+                </span>
+              </div>
+
               <div className="col-span-2 border-t border-slate-100 pt-3 flex justify-between items-center">
-                <span className="font-semibold text-xs text-slate-500">Expense Net (Paid − Share)</span>
+                <span className="font-semibold text-xs text-slate-500">Expense Net Standing</span>
                 <span
                   className={`font-bold font-mono ${
-                    currentSettlement.zilamStats.netExpensePosition >= 0
+                    currentSettlement.zilamStats.currentAccountBalance >= 0
                       ? 'text-emerald-600'
                       : 'text-rose-600'
                   }`}
                 >
-                  {currentSettlement.zilamStats.netExpensePosition >= 0 ? '+ ' : '- '}
-                  {formatCurrency(Math.abs(currentSettlement.zilamStats.netExpensePosition))}
+                  {currentSettlement.zilamStats.currentAccountBalance >= 0 ? '+ ' : '- '}
+                  {formatCurrency(Math.abs(currentSettlement.zilamStats.currentAccountBalance))}
                   {' '}
                   <span className="text-[11px] font-normal text-slate-500">
-                    {currentSettlement.zilamStats.netExpensePosition > 0.005
-                      ? '(Overpaid)'
-                      : currentSettlement.zilamStats.netExpensePosition < -0.005
-                      ? '(Underpaid)'
+                    {currentSettlement.zilamStats.currentAccountBalance > 0.005
+                      ? '(Surplus / Paid)'
+                      : currentSettlement.zilamStats.currentAccountBalance < -0.005
+                      ? `(${formatCurrency(currentSettlement.zilamStats.unpaidExpenseAmount)} Unpaid)`
                       : '(Settled)'}
                   </span>
                 </span>
@@ -343,54 +491,84 @@ export const DashboardView: React.FC = () => {
                   <th className="px-4 py-2.5 border-b border-slate-200">Description</th>
                   <th className="px-4 py-2.5 border-b border-slate-200">Type</th>
                   <th className="px-4 py-2.5 border-b border-slate-200">Paid By</th>
+                  <th className="px-4 py-2.5 border-b border-slate-200">Payment Status</th>
                   <th className="px-4 py-2.5 border-b border-slate-200 text-right">Amount</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs">
                 {monthExpenses.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-slate-400">
+                    <td colSpan={7} className="py-8 text-center text-slate-400">
                       No expenses recorded for this month yet.
                     </td>
                   </tr>
                 ) : (
-                  monthExpenses.slice(0, 6).map((exp) => (
-                    <tr key={exp.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="px-4 py-2.5 text-slate-600 font-mono whitespace-nowrap">
-                        {formatDate(exp.date)}
-                      </td>
-                      <td className="px-4 py-2.5 font-medium text-slate-700 whitespace-nowrap">
-                        {categoryMap[exp.categoryId] || 'General'}
-                      </td>
-                      <td className="px-4 py-2.5 text-slate-800 max-w-[160px] truncate">
-                        {exp.description}
-                      </td>
-                      <td className="px-4 py-2.5 whitespace-nowrap">
-                        {exp.expenseType === 'common' ? (
-                          <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] rounded uppercase font-bold">
-                            Common
+                  monthExpenses.slice(0, 6).map((exp) => {
+                    const fundStatus = getExpenseFundStatus(
+                      exp,
+                      db.expenses,
+                      db.contributions,
+                      currentMonth.id
+                    );
+                    return (
+                      <tr key={exp.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="px-4 py-2.5 text-slate-600 font-mono whitespace-nowrap">
+                          {formatDate(exp.date)}
+                        </td>
+                        <td className="px-4 py-2.5 font-medium text-slate-700 whitespace-nowrap">
+                          {categoryMap[exp.categoryId] || 'General'}
+                        </td>
+                        <td className="px-4 py-2.5 text-slate-800 max-w-[160px] truncate">
+                          {exp.description}
+                        </td>
+                        <td className="px-4 py-2.5 whitespace-nowrap">
+                          {exp.expenseType === 'common' ? (
+                            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] rounded uppercase font-bold">
+                              Common
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] rounded uppercase font-bold">
+                              Personal
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 text-slate-700 whitespace-nowrap">
+                          <span className="flex items-center gap-1.5">
+                            <span
+                              className={`w-2 h-2 rounded-full ${
+                                exp.paidBy === 'total-fund'
+                                  ? 'bg-purple-500'
+                                  : exp.paidBy === 'tanvir-rana'
+                                  ? 'bg-emerald-500'
+                                  : 'bg-blue-500'
+                              }`}
+                            />
+                            {exp.paidBy === 'total-fund'
+                              ? 'Total Fund'
+                              : exp.paidBy === 'tanvir-rana'
+                              ? 'Tanvir'
+                              : 'Zilam'}
                           </span>
-                        ) : (
-                          <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] rounded uppercase font-bold">
-                            Personal
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-2.5 text-slate-700 whitespace-nowrap">
-                        <span className="flex items-center gap-1.5">
-                          <span
-                            className={`w-2 h-2 rounded-full ${
-                              exp.paidBy === 'tanvir-rana' ? 'bg-emerald-500' : 'bg-blue-500'
-                            }`}
-                          />
-                          {exp.paidBy === 'tanvir-rana' ? 'Tanvir' : 'Zilam'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2.5 text-right font-bold text-slate-900 font-mono whitespace-nowrap">
-                        {formatCurrency(exp.amount)}
-                      </td>
-                    </tr>
-                  ))
+                        </td>
+                        <td className="px-4 py-2.5 whitespace-nowrap">
+                          {fundStatus.statusText === 'Paid' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                              Paid
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                              Unpaid
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 text-right font-bold text-slate-900 font-mono whitespace-nowrap">
+                          {formatCurrency(exp.amount)}
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
