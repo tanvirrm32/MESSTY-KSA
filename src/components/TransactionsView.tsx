@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Search,
   Filter,
@@ -21,6 +21,7 @@ export const TransactionsView: React.FC = () => {
   const {
     currentMonth,
     currentSettlement,
+    allSettlements,
     db,
     setEditingExpense,
     setIsExpenseModalOpen,
@@ -29,11 +30,17 @@ export const TransactionsView: React.FC = () => {
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedMonthId, setSelectedMonthId] = useState<string>(currentMonth.id);
   const [selectedMember, setSelectedMember] = useState<'all' | 'tanvir-rana' | 'zilam-jahid' | 'total-fund'>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedType, setSelectedType] = useState<'all' | 'common' | 'personal'>('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+
+  // Keep selectedMonthId in sync when active month changes in header
+  useEffect(() => {
+    setSelectedMonthId(currentMonth.id);
+  }, [currentMonth.id]);
 
   // Delete confirmation
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -43,15 +50,17 @@ export const TransactionsView: React.FC = () => {
     [db.categories]
   );
 
-  // Month-filtered expenses
-  const monthExpenses = useMemo(
-    () => db.expenses.filter((e) => e.monthId === currentMonth.id),
-    [db.expenses, currentMonth.id]
-  );
+  // Month-filtered base expenses
+  const baseExpenses = useMemo(() => {
+    if (selectedMonthId === 'all') {
+      return db.expenses;
+    }
+    return db.expenses.filter((e) => e.monthId === selectedMonthId);
+  }, [db.expenses, selectedMonthId]);
 
   // Apply search and filters
   const filteredExpenses = useMemo(() => {
-    return monthExpenses.filter((e) => {
+    return baseExpenses.filter((e) => {
       // Search
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -86,7 +95,7 @@ export const TransactionsView: React.FC = () => {
       return true;
     });
   }, [
-    monthExpenses,
+    baseExpenses,
     searchQuery,
     selectedMember,
     selectedCategory,
@@ -118,12 +127,57 @@ export const TransactionsView: React.FC = () => {
     return { total, tanvirPaid, zilamPaid, fundPaid, commonTotal, personalTotal };
   }, [filteredExpenses]);
 
+  // Summary figures for cards
+  const displaySettlement = useMemo(() => {
+    if (selectedMonthId === 'all') {
+      let totalExp = 0;
+      let commonExp = 0;
+      let personalExp = 0;
+      for (const e of baseExpenses) {
+        totalExp += e.amount;
+        if (e.expenseType === 'common') commonExp += e.amount;
+        else personalExp += e.amount;
+      }
+      return {
+        totalExpenses: totalExp,
+        totalCommonExpenses: commonExp,
+        totalPersonalExpenses: personalExp,
+        commonExpensePerMember: commonExp / 2,
+      };
+    }
+    if (selectedMonthId === currentMonth.id) {
+      return currentSettlement;
+    }
+    const found = allSettlements?.get(selectedMonthId);
+    if (found) return found;
+
+    let totalExp = 0;
+    let commonExp = 0;
+    let personalExp = 0;
+    for (const e of baseExpenses) {
+      totalExp += e.amount;
+      if (e.expenseType === 'common') commonExp += e.amount;
+      else personalExp += e.amount;
+    }
+    return {
+      totalExpenses: totalExp,
+      totalCommonExpenses: commonExp,
+      totalPersonalExpenses: personalExp,
+      commonExpensePerMember: commonExp / 2,
+    };
+  }, [selectedMonthId, currentMonth.id, currentSettlement, allSettlements, baseExpenses]);
+
   const handleExportCSV = () => {
-    exportExpensesToCSV(filteredExpenses, db.categories, currentMonth.name);
+    const monthLabel =
+      selectedMonthId === 'all'
+        ? 'All_Months'
+        : db.months.find((m) => m.id === selectedMonthId)?.name || currentMonth.name;
+    exportExpensesToCSV(filteredExpenses, db.categories, monthLabel);
   };
 
   const handleClearFilters = () => {
     setSearchQuery('');
+    setSelectedMonthId(currentMonth.id);
     setSelectedMember('all');
     setSelectedCategory('all');
     setSelectedType('all');
@@ -133,6 +187,7 @@ export const TransactionsView: React.FC = () => {
 
   const hasActiveFilters =
     searchQuery ||
+    selectedMonthId !== currentMonth.id ||
     selectedMember !== 'all' ||
     selectedCategory !== 'all' ||
     selectedType !== 'all' ||
@@ -148,7 +203,12 @@ export const TransactionsView: React.FC = () => {
             Expenses Ledger
           </h2>
           <p className="text-xs text-slate-500">
-            Recorded expenses for <span className="font-semibold text-slate-700">{currentMonth.name}</span>
+            Recorded expenses for{' '}
+            <span className="font-semibold text-slate-700">
+              {selectedMonthId === 'all'
+                ? 'All Months'
+                : db.months.find((m) => m.id === selectedMonthId)?.name || currentMonth.name}
+            </span>
           </p>
         </div>
 
@@ -183,16 +243,18 @@ export const TransactionsView: React.FC = () => {
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between text-slate-500 text-xs mb-1">
-              <span className="font-semibold uppercase tracking-wider text-slate-600">Total Month Expenses</span>
-              <span className="text-[11px] text-slate-400 font-mono">{monthExpenses.length} items</span>
+              <span className="font-semibold uppercase tracking-wider text-slate-600">
+                {selectedMonthId === 'all' ? 'Total Expenses (All Months)' : 'Total Month Expenses'}
+              </span>
+              <span className="text-[11px] text-slate-400 font-mono">{baseExpenses.length} items</span>
             </div>
             <div className="text-2xl font-black font-mono text-slate-900 tracking-tight">
-              {formatCurrency(currentSettlement.totalExpenses)}
+              {formatCurrency(displaySettlement.totalExpenses)}
             </div>
           </div>
           <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-600">
-            <span>Common: <strong className="font-mono text-slate-800">{formatCurrency(currentSettlement.totalCommonExpenses)}</strong></span>
-            <span>Personal: <strong className="font-mono text-slate-800">{formatCurrency(currentSettlement.totalPersonalExpenses)}</strong></span>
+            <span>Common: <strong className="font-mono text-slate-800">{formatCurrency(displaySettlement.totalCommonExpenses)}</strong></span>
+            <span>Personal: <strong className="font-mono text-slate-800">{formatCurrency(displaySettlement.totalPersonalExpenses)}</strong></span>
           </div>
         </div>
 
@@ -204,13 +266,13 @@ export const TransactionsView: React.FC = () => {
               <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-medium">50/50 Split</span>
             </div>
             <div className="text-2xl font-black font-mono text-emerald-950 tracking-tight">
-              {formatCurrency(currentSettlement.totalCommonExpenses)}
+              {formatCurrency(displaySettlement.totalCommonExpenses)}
             </div>
           </div>
           <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-600">
             <span>Per Member Share:</span>
             <span className="font-mono font-bold text-emerald-700 text-xs">
-              {formatCurrency(currentSettlement.commonExpensePerMember)}
+              {formatCurrency(displaySettlement.commonExpensePerMember)}
             </span>
           </div>
         </div>
@@ -218,7 +280,7 @@ export const TransactionsView: React.FC = () => {
 
       {/* Filter Toolbar */}
       <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
           {/* Search box */}
           <div className="relative lg:col-span-2">
             <Search className="w-4 h-4 absolute left-3 top-2 text-slate-400" />
@@ -229,6 +291,23 @@ export const TransactionsView: React.FC = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-3 py-1.5 text-xs border border-slate-300 rounded-md focus:border-blue-500 outline-hidden bg-white"
             />
+          </div>
+
+          {/* Month filter */}
+          <div>
+            <select
+              id="filter-month-select"
+              value={selectedMonthId}
+              onChange={(e) => setSelectedMonthId(e.target.value)}
+              className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-md focus:border-blue-500 outline-hidden bg-white font-medium text-slate-700"
+            >
+              <option value="all">All Months</option>
+              {db.months.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name} {m.id === currentMonth.id ? '(Active)' : ''}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Member filter */}
@@ -310,7 +389,7 @@ export const TransactionsView: React.FC = () => {
       <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 flex flex-wrap items-center justify-between gap-4 text-xs">
         <div className="flex items-center gap-3 text-slate-600">
           <span>
-            Shown: <strong className="text-slate-900">{filteredExpenses.length}</strong> / {monthExpenses.length} expenses
+            Shown: <strong className="text-slate-900">{filteredExpenses.length}</strong> / {baseExpenses.length} expenses
           </span>
           <span>•</span>
           <span>
