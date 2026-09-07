@@ -25,6 +25,8 @@ import {
   importDatabaseJSON,
   syncExistingBazaarContributions,
   DEFAULT_APP_SETTINGS,
+  SAMPLE_EXPENSE_IDS,
+  SAMPLE_CONTRIBUTION_IDS,
 } from '../utils/storage';
 import {
   calculateMonthlySettlement,
@@ -248,7 +250,27 @@ export const MessProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!isMounted) return;
         if (remoteData && Array.isArray(remoteData.months) && remoteData.months.length > 0) {
           isRemoteIncoming.current = true;
-          setDb(remoteData);
+          // Purge sample demo expenses and contributions if lingering in Firebase
+          const hadSampleData =
+            (remoteData.expenses || []).some((e) => SAMPLE_EXPENSE_IDS.has(e.id)) ||
+            (remoteData.contributions || []).some(
+              (c) => SAMPLE_CONTRIBUTION_IDS.has(c.id) || SAMPLE_EXPENSE_IDS.has(c.linkedExpenseId || '')
+            );
+
+          const cleanRemoteData: AppDatabase = hadSampleData
+            ? {
+                ...remoteData,
+                expenses: (remoteData.expenses || []).filter((e) => !SAMPLE_EXPENSE_IDS.has(e.id)),
+                contributions: (remoteData.contributions || []).filter(
+                  (c) => !SAMPLE_CONTRIBUTION_IDS.has(c.id) && !SAMPLE_EXPENSE_IDS.has(c.linkedExpenseId || '')
+                ),
+              }
+            : remoteData;
+
+          setDb(cleanRemoteData);
+          if (hadSampleData) {
+            syncDatabaseToFirebase(cleanRemoteData).catch(console.error);
+          }
           setFirebaseSyncStatus('connected');
           setLastSyncedAt(new Date().toLocaleTimeString());
           setTimeout(() => {

@@ -47,98 +47,12 @@ export const INITIAL_MONTHS: MessMonth[] = [
   },
 ];
 
-export const INITIAL_CONTRIBUTIONS: Contribution[] = [
-  {
-    id: 'CON-1001',
-    date: '2026-09-01',
-    monthId: '2026-09',
-    memberId: 'tanvir-rana',
-    amount: 1000,
-    paymentMethod: 'Bank',
-    reference: 'TRX-98214',
-    notes: 'Monthly mess fund contribution',
-    createdAt: '2026-09-01T10:00:00.000Z',
-  },
-  {
-    id: 'CON-1002',
-    date: '2026-09-01',
-    monthId: '2026-09',
-    memberId: 'zilam-jahid',
-    amount: 1000,
-    paymentMethod: 'Cash',
-    reference: 'Cash in Hand',
-    notes: 'Monthly mess fund contribution',
-    createdAt: '2026-09-01T10:30:00.000Z',
-  },
-];
+export const SAMPLE_EXPENSE_IDS = new Set(['EXP-1001', 'EXP-1002', 'EXP-1003', 'EXP-1004']);
+export const SAMPLE_CONTRIBUTION_IDS = new Set(['CON-1001', 'CON-1002']);
 
-export const INITIAL_EXPENSES: Expense[] = [
-  {
-    id: 'EXP-1001',
-    date: '2026-09-02',
-    monthId: '2026-09',
-    categoryId: 'cat-grocery',
-    description: 'Weekly Market & Fresh Vegetables',
-    amount: 320,
-    paidBy: 'tanvir-rana',
-    expenseType: 'common',
-    splitRatio: { tanvirPercent: 50, zilamPercent: 50 },
-    tanvirShare: 160,
-    zilamShare: 160,
-    notes: 'Supermarket receipt #451',
-    createdAt: '2026-09-02T12:00:00.000Z',
-    updatedAt: '2026-09-02T12:00:00.000Z',
-  },
-  {
-    id: 'EXP-1002',
-    date: '2026-09-03',
-    monthId: '2026-09',
-    categoryId: 'cat-meat',
-    description: 'Fresh Meat & Chicken Purchase',
-    amount: 240,
-    paidBy: 'zilam-jahid',
-    expenseType: 'common',
-    splitRatio: { tanvirPercent: 50, zilamPercent: 50 },
-    tanvirShare: 120,
-    zilamShare: 120,
-    notes: 'Halal Butchery',
-    createdAt: '2026-09-03T15:20:00.000Z',
-    updatedAt: '2026-09-03T15:20:00.000Z',
-  },
-  {
-    id: 'EXP-1003',
-    date: '2026-09-04',
-    monthId: '2026-09',
-    categoryId: 'cat-internet',
-    description: 'High Speed Fiber Internet Bill',
-    amount: 180,
-    paidBy: 'tanvir-rana',
-    expenseType: 'common',
-    splitRatio: { tanvirPercent: 50, zilamPercent: 50 },
-    tanvirShare: 90,
-    zilamShare: 90,
-    notes: 'STC monthly bill paid online',
-    createdAt: '2026-09-04T09:15:00.000Z',
-    updatedAt: '2026-09-04T09:15:00.000Z',
-  },
-  {
-    id: 'EXP-1004',
-    date: '2026-09-04',
-    monthId: '2026-09',
-    categoryId: 'cat-other',
-    description: 'Special Tea & Personal Snacks (Tanvir)',
-    amount: 45,
-    paidBy: 'tanvir-rana',
-    expenseType: 'personal',
-    personalFor: 'tanvir-rana',
-    splitRatio: { tanvirPercent: 100, zilamPercent: 0 },
-    tanvirShare: 45,
-    zilamShare: 0,
-    notes: 'Personal snacks not shared',
-    createdAt: '2026-09-04T18:00:00.000Z',
-    updatedAt: '2026-09-04T18:00:00.000Z',
-  },
-];
+export const INITIAL_CONTRIBUTIONS: Contribution[] = [];
+
+export const INITIAL_EXPENSES: Expense[] = [];
 
 export const INITIAL_AUDIT_LOGS: AuditLog[] = [
   {
@@ -189,6 +103,12 @@ export function loadDatabase(): AppDatabase {
         ...(parsed.settings?.auth || {}),
       },
     };
+
+    // Permanently remove sample demo expenses and contributions if present in storage
+    parsed.expenses = (parsed.expenses || []).filter((e) => !SAMPLE_EXPENSE_IDS.has(e.id));
+    parsed.contributions = (parsed.contributions || []).filter(
+      (c) => !SAMPLE_CONTRIBUTION_IDS.has(c.id) && !SAMPLE_EXPENSE_IDS.has(c.linkedExpenseId || '')
+    );
 
     // Remove August 2026 ('2026-08') if present in existing storage
     if (parsed.months.some((m) => m.id === '2026-08')) {
