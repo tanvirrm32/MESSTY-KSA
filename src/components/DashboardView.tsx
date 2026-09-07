@@ -11,7 +11,7 @@ import {
   Calendar,
 } from 'lucide-react';
 import { useMess } from '../context/MessContext';
-import { formatCurrency } from '../utils/calcEngine';
+import { formatCurrency, formatDate } from '../utils/calcEngine';
 
 export const DashboardView: React.FC = () => {
   const {
@@ -23,7 +23,9 @@ export const DashboardView: React.FC = () => {
     setIsContributionModalOpen,
   } = useMess();
 
-  const monthExpenses = db.expenses.filter((e) => e.monthId === currentMonth.id);
+  const monthExpenses = [...db.expenses.filter((e) => e.monthId === currentMonth.id)].sort(
+    (a, b) => b.date.localeCompare(a.date) || (b.createdAt || '').localeCompare(a.createdAt || '')
+  );
   const monthContributions = db.contributions.filter((c) => c.monthId === currentMonth.id);
 
   // Category breakdown calculation
@@ -106,7 +108,11 @@ export const DashboardView: React.FC = () => {
           </div>
           <div className="mt-2 pt-2 border-t border-slate-800 flex items-center justify-between">
             <span className="text-xs text-slate-400">
-              {currentSettlement.isBalanced ? 'Net Difference' : 'Settlement Amount'}
+              {currentSettlement.isBalanced
+                ? 'Net Difference'
+                : currentSettlement.remainingFund > 0
+                ? 'Remaining Cash Fund'
+                : 'Settlement Amount'}
             </span>
             <span className="text-base font-bold text-white font-mono">
               {formatCurrency(currentSettlement.settlementAmount)}
@@ -351,7 +357,7 @@ export const DashboardView: React.FC = () => {
                   monthExpenses.slice(0, 6).map((exp) => (
                     <tr key={exp.id} className="hover:bg-slate-50/70 transition-colors">
                       <td className="px-4 py-2.5 text-slate-600 font-mono whitespace-nowrap">
-                        {exp.date}
+                        {formatDate(exp.date)}
                       </td>
                       <td className="px-4 py-2.5 font-medium text-slate-700 whitespace-nowrap">
                         {categoryMap[exp.categoryId] || 'General'}

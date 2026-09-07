@@ -14,7 +14,7 @@ import {
   Landmark,
 } from 'lucide-react';
 import { useMess } from '../context/MessContext';
-import { formatCurrency } from '../utils/calcEngine';
+import { formatCurrency, formatDate } from '../utils/calcEngine';
 import { exportContributionsToCSV } from '../utils/exportUtils';
 import { ConfirmModal } from './ConfirmModal';
 
@@ -57,7 +57,7 @@ export const ContributionsView: React.FC = () => {
       }
 
       return true;
-    });
+    }).sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt || '').localeCompare(a.createdAt || ''));
   }, [monthContributions, searchQuery, selectedMember]);
 
   const tanvirEntriesCount = useMemo(
@@ -407,7 +407,7 @@ export const ContributionsView: React.FC = () => {
                   <tr key={con.id} className="hover:bg-slate-50/70 transition-colors">
                     {/* Date */}
                     <td className="py-3 px-4 font-medium text-slate-700 whitespace-nowrap">
-                      {con.date}
+                      {formatDate(con.date)}
                     </td>
 
                     {/* ID */}

@@ -78,7 +78,8 @@ export async function syncDatabaseToFirebase(data: AppDatabase): Promise<void> {
  */
 export function subscribeToFirebaseMess(
   onData: (data: AppDatabase) => void,
-  onError?: (err: Error) => void
+  onError?: (err: Error) => void,
+  onEmpty?: () => void
 ): Unsubscribe {
   return onSnapshot(
     MESS_DOC_REF,
@@ -88,6 +89,7 @@ export function subscribeToFirebaseMess(
         onData(data);
       } else {
         console.log('[Firebase] No document found in Firestore, initial write may be needed.');
+        if (onEmpty) onEmpty();
       }
     },
     (error) => {

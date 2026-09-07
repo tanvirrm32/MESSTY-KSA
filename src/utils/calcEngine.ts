@@ -32,6 +32,44 @@ export function formatCurrency(amount: number, includeCode: boolean = true): str
 }
 
 /**
+ * Formats a date string into standard DD-MM-YYYY format (e.g., '2026-09-07' -> '07-09-2026').
+ */
+export function formatDate(dateStr?: string | null): string {
+  if (!dateStr) return '';
+  const str = String(dateStr).trim();
+
+  // Already in DD-MM-YYYY format
+  if (/^\d{2}-\d{2}-\d{4}$/.test(str)) {
+    return str;
+  }
+
+  // Matches YYYY-MM-DD
+  const ymdMatch = str.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (ymdMatch) {
+    const [, year, month, day] = ymdMatch;
+    return `${day.padStart(2, '0')}-${month.padStart(2, '0')}-${year}`;
+  }
+
+  // Matches DD-MM-YYYY with slashes or dots
+  const dmyMatch = str.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+  if (dmyMatch) {
+    const [, day, month, year] = dmyMatch;
+    return `${day.padStart(2, '0')}-${month.padStart(2, '0')}-${year}`;
+  }
+
+  // Fallback to Date object parsing
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}-${month}-${year}`;
+  }
+
+  return str;
+}
+
+/**
  * Calculate member shares for an expense
  */
 export function calculateExpenseShares(
@@ -216,36 +254,56 @@ export function calculateMonthlySettlement(
 
   const commonExpensePerMember = roundCurrency(totalCommonExpenses / 2);
 
-  // Determine who should pay whom to equalize their total financial positions:
-  // Account Balance = Opening Balance + Direct Deposits + Net Expense Position
-  // (Identical to Opening Balance + Total Contributions - Total Expense Responsibility)
-  const netBalanceDifference = roundCurrency(tanvirStats.currentAccountBalance - zilamStats.currentAccountBalance);
+  const fundExpensesPaid = totalExpenses;
+  const totalDeposit = totalContributions;
+  const remainingFund = roundCurrency(totalDeposit - totalExpenses);
+
+  // Rule 1: Refund from remaining mess fund based on actual closing account balance
+  // Member Balance = Opening Balance + Total Contributions - Expense Responsibility
+  const tanvirBal = tanvirStats.currentAccountBalance;
+  const zilamBal = zilamStats.currentAccountBalance;
+
   let settlementPayer: 'tanvir-rana' | 'zilam-jahid' | null = null;
   let settlementReceiver: 'tanvir-rana' | 'zilam-jahid' | null = null;
-  let settlementAmount = 0;
+  let settlementAmount = roundCurrency(Math.abs(remainingFund));
   let settlementMessage = 'Settlement Complete — Accounts are fully balanced.';
-  let isBalanced = true;
+  let isBalanced = Math.abs(tanvirBal) < 0.005 && Math.abs(zilamBal) < 0.005;
 
-  // Using strict threshold to ignore floating point epsilon
-  if (netBalanceDifference > 0.005) {
-    // Tanvir has higher equity / overpaid; Zilam pays Tanvir half the difference to equalize
-    settlementPayer = 'zilam-jahid';
-    settlementReceiver = 'tanvir-rana';
-    settlementAmount = roundCurrency(netBalanceDifference / 2);
-    settlementMessage = `Zilam Jahid should pay Tanvir Rana ${formatCurrency(settlementAmount)}.`;
+  if (tanvirBal > 0.005 && zilamBal > 0.005) {
+    // Both members have positive closing balance: both receive their refund directly from the remaining mess fund
+    settlementMessage = `Tanvir receives ${formatCurrency(tanvirBal)} and Zilam receives ${formatCurrency(zilamBal)} from remaining fund.`;
+    settlementAmount = remainingFund;
     isBalanced = false;
-  } else if (netBalanceDifference < -0.005) {
-    // Zilam has higher equity / overpaid; Tanvir pays Zilam half the difference to equalize
+  } else if (tanvirBal < -0.005 && zilamBal > 0.005) {
+    // Tanvir underpaid, Zilam overpaid
     settlementPayer = 'tanvir-rana';
     settlementReceiver = 'zilam-jahid';
-    settlementAmount = roundCurrency(Math.abs(netBalanceDifference) / 2);
-    settlementMessage = `Tanvir Rana should pay Zilam Jahid ${formatCurrency(settlementAmount)}.`;
+    settlementAmount = roundCurrency(Math.abs(tanvirBal));
+    settlementMessage = `Tanvir Rana owes ${formatCurrency(settlementAmount)} to fund / Zilam Jahid.`;
+    isBalanced = false;
+  } else if (zilamBal < -0.005 && tanvirBal > 0.005) {
+    // Zilam underpaid, Tanvir overpaid
+    settlementPayer = 'zilam-jahid';
+    settlementReceiver = 'tanvir-rana';
+    settlementAmount = roundCurrency(Math.abs(zilamBal));
+    settlementMessage = `Zilam Jahid owes ${formatCurrency(settlementAmount)} to fund / Tanvir Rana.`;
+    isBalanced = false;
+  } else if (tanvirBal < -0.005 && zilamBal < -0.005) {
+    // Both in deficit to the mess fund
+    settlementAmount = roundCurrency(Math.abs(remainingFund));
+    settlementMessage = `Fund Deficit: Tanvir owes ${formatCurrency(Math.abs(tanvirBal))} & Zilam owes ${formatCurrency(Math.abs(zilamBal))} to fund.`;
+    isBalanced = false;
+  } else if (tanvirBal > 0.005) {
+    settlementReceiver = 'tanvir-rana';
+    settlementAmount = tanvirBal;
+    settlementMessage = `Tanvir Rana will receive ${formatCurrency(tanvirBal)} from remaining fund.`;
+    isBalanced = false;
+  } else if (zilamBal > 0.005) {
+    settlementReceiver = 'zilam-jahid';
+    settlementAmount = zilamBal;
+    settlementMessage = `Zilam Jahid will receive ${formatCurrency(zilamBal)} from remaining fund.`;
     isBalanced = false;
   }
-
-  // Total fund used is the total mess expenses incurred for this month
-  const fundExpensesPaid = totalExpenses;
-  const remainingFund = roundCurrency(totalContributions - totalExpenses);
 
   return {
     monthId: month.id,

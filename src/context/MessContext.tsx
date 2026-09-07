@@ -27,6 +27,7 @@ import {
   DEFAULT_APP_SETTINGS,
   SAMPLE_EXPENSE_IDS,
   SAMPLE_CONTRIBUTION_IDS,
+  mergeDatabases,
 } from '../utils/storage';
 import {
   calculateMonthlySettlement,
@@ -240,6 +241,12 @@ export const MessProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [firebaseSyncStatus, setFirebaseSyncStatus] = useState<'connected' | 'syncing' | 'error' | 'offline'>('connected');
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const isRemoteIncoming = useRef<boolean>(false);
+  const hasCloudInitialized = useRef<boolean>(false);
+  const dbRef = useRef<AppDatabase>(db);
+
+  useEffect(() => {
+    dbRef.current = db;
+  }, [db]);
 
   // Listen for real-time changes from Firebase Firestore
   useEffect(() => {
@@ -251,35 +258,23 @@ export const MessProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!isMounted) return;
         if (remoteData && Array.isArray(remoteData.months) && remoteData.months.length > 0) {
           isRemoteIncoming.current = true;
-          // Purge sample demo expenses and contributions if lingering in Firebase
-          const hadSampleData =
-            (remoteData.expenses || []).some((e) => SAMPLE_EXPENSE_IDS.has(e.id)) ||
-            (remoteData.contributions || []).some(
-              (c) => SAMPLE_CONTRIBUTION_IDS.has(c.id) || SAMPLE_EXPENSE_IDS.has(c.linkedExpenseId || '')
-            );
+          hasCloudInitialized.current = true;
 
-          const cleanRemoteData: AppDatabase = hadSampleData
-            ? {
-                ...remoteData,
-                expenses: (remoteData.expenses || []).filter((e) => !SAMPLE_EXPENSE_IDS.has(e.id)),
-                contributions: (remoteData.contributions || []).filter(
-                  (c) => !SAMPLE_CONTRIBUTION_IDS.has(c.id) && !SAMPLE_EXPENSE_IDS.has(c.linkedExpenseId || '')
-                ),
-              }
-            : remoteData;
+          setDb((currentLocal) => {
+            const merged = mergeDatabases(currentLocal, remoteData);
+            saveDatabase(merged);
+            return merged;
+          });
 
-          setDb(cleanRemoteData);
-          if (hadSampleData) {
-            syncDatabaseToFirebase(cleanRemoteData).catch(console.error);
-          }
           setFirebaseSyncStatus('connected');
           setLastSyncedAt(new Date().toLocaleTimeString());
           setTimeout(() => {
             isRemoteIncoming.current = false;
-          }, 400);
+          }, 300);
         } else {
+          hasCloudInitialized.current = true;
           // Document empty in Firebase, seed with current local data
-          syncDatabaseToFirebase(db)
+          syncDatabaseToFirebase(dbRef.current)
             .then(() => {
               if (isMounted) {
                 setFirebaseSyncStatus('connected');
@@ -294,7 +289,26 @@ export const MessProvider: React.FC<{ children: React.ReactNode }> = ({ children
       },
       (error) => {
         console.error('[Firebase] Realtime sync error:', error);
-        if (isMounted) setFirebaseSyncStatus('error');
+        if (isMounted) {
+          // Allow local offline changes to persist in localStorage
+          setFirebaseSyncStatus('error');
+        }
+      },
+      () => {
+        // onEmpty handler: Cloud doc doesn't exist yet, seed safely
+        if (!isMounted) return;
+        hasCloudInitialized.current = true;
+        syncDatabaseToFirebase(dbRef.current)
+          .then(() => {
+            if (isMounted) {
+              setFirebaseSyncStatus('connected');
+              setLastSyncedAt(new Date().toLocaleTimeString());
+            }
+          })
+          .catch((err) => {
+            console.error('[Firebase] Initial seed error:', err);
+            if (isMounted) setFirebaseSyncStatus('error');
+          });
       }
     );
 
@@ -308,7 +322,9 @@ export const MessProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     saveDatabase(db);
 
-    if (!isRemoteIncoming.current) {
+    // CRITICAL: Only push to Firebase after initial cloud state has arrived and merged!
+    // This guarantees that starting with a cold local cache or during system updates never wipes remote data.
+    if (hasCloudInitialized.current && !isRemoteIncoming.current) {
       setFirebaseSyncStatus('syncing');
       const timer = setTimeout(() => {
         syncDatabaseToFirebase(db)
@@ -479,11 +495,16 @@ export const MessProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ...prev,
       expenses: [newExpense, ...prev.expenses],
       contributions: newContribution ? [newContribution, ...prev.contributions] : prev.contributions,
+      deletedExpenseIds: (prev.deletedExpenseIds || []).filter((delId) => delId !== id),
+      deletedContributionIds: conId
+        ? (prev.deletedContributionIds || []).filter((delId) => delId !== conId)
+        : prev.deletedContributionIds,
       auditLogs: [
         auditLogExpense,
         ...(auditLogContribution ? [auditLogContribution] : []),
         ...prev.auditLogs,
       ],
+      updatedAt: now,
     }));
   };
 
@@ -635,7 +656,12 @@ export const MessProvider: React.FC<{ children: React.ReactNode }> = ({ children
         contributions: prev.contributions.filter(
           (c) => c.linkedExpenseId !== id && (!existing.linkedContributionId || c.id !== existing.linkedContributionId)
         ),
+        deletedExpenseIds: Array.from(new Set([...(prev.deletedExpenseIds || []), id])),
+        deletedContributionIds: existing.linkedContributionId
+          ? Array.from(new Set([...(prev.deletedContributionIds || []), existing.linkedContributionId]))
+          : (prev.deletedContributionIds || []),
         auditLogs: [auditLog, ...prev.auditLogs],
+        updatedAt: now,
       };
     });
   };
@@ -688,7 +714,9 @@ export const MessProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setDb((prev) => ({
       ...prev,
       contributions: [newContribution, ...prev.contributions],
+      deletedContributionIds: (prev.deletedContributionIds || []).filter((delId) => delId !== id),
       auditLogs: [auditLog, ...prev.auditLogs],
+      updatedAt: now,
     }));
   };
 
@@ -798,7 +826,9 @@ export const MessProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ...prev,
         contributions: prev.contributions.filter((c) => c.id !== id),
         expenses: updatedExpenses,
+        deletedContributionIds: Array.from(new Set([...(prev.deletedContributionIds || []), id])),
         auditLogs: [auditLog, ...prev.auditLogs],
+        updatedAt: now,
       };
     });
   };
@@ -1009,7 +1039,8 @@ export const MessProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setDb((prev) => ({
       ...prev,
-      categories: [...prev.categories, newCat],
+      categories: [...prev.categories.filter((c) => c.id !== id), newCat],
+      deletedCategoryIds: (prev.deletedCategoryIds || []).filter((delId) => delId !== id),
     }));
   };
 
@@ -1057,6 +1088,7 @@ export const MessProvider: React.FC<{ children: React.ReactNode }> = ({ children
           e.categoryId === id ? { ...e, categoryId: reassignToCategoryId } : e
         ),
         categories: prev.categories.filter((c) => c.id !== id),
+        deletedCategoryIds: Array.from(new Set([...(prev.deletedCategoryIds || []), id])),
       }));
       return true;
     }
@@ -1064,6 +1096,7 @@ export const MessProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setDb((prev) => ({
       ...prev,
       categories: prev.categories.filter((c) => c.id !== id),
+      deletedCategoryIds: Array.from(new Set([...(prev.deletedCategoryIds || []), id])),
     }));
     return true;
   };

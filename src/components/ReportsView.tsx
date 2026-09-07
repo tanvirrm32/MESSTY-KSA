@@ -11,7 +11,7 @@ import {
   Layers,
 } from 'lucide-react';
 import { useMess } from '../context/MessContext';
-import { formatCurrency } from '../utils/calcEngine';
+import { formatCurrency, formatDate } from '../utils/calcEngine';
 import {
   exportExpensesToCSV,
   exportContributionsToCSV,
@@ -27,12 +27,18 @@ export const ReportsView: React.FC = () => {
   const [activeReportTab, setActiveReportTab] = useState<ReportTab>('statement');
 
   const monthExpenses = useMemo(
-    () => db.expenses.filter((e) => e.monthId === currentMonth.id),
+    () =>
+      [...db.expenses.filter((e) => e.monthId === currentMonth.id)].sort(
+        (a, b) => b.date.localeCompare(a.date) || (b.createdAt || '').localeCompare(a.createdAt || '')
+      ),
     [db.expenses, currentMonth.id]
   );
 
   const monthContributions = useMemo(
-    () => db.contributions.filter((c) => c.monthId === currentMonth.id),
+    () =>
+      [...db.contributions.filter((c) => c.monthId === currentMonth.id)].sort(
+        (a, b) => b.date.localeCompare(a.date) || (b.createdAt || '').localeCompare(a.createdAt || '')
+      ),
     [db.contributions, currentMonth.id]
   );
 
@@ -43,12 +49,13 @@ export const ReportsView: React.FC = () => {
 
   // Category totals
   const categorySummary = useMemo(() => {
-    const map = new Map<string, { total: number; tanvirPaid: number; zilamPaid: number }>();
+    const map = new Map<string, { total: number; tanvirPaid: number; zilamPaid: number; fundPaid: number }>();
     for (const exp of monthExpenses) {
-      const existing = map.get(exp.categoryId) || { total: 0, tanvirPaid: 0, zilamPaid: 0 };
+      const existing = map.get(exp.categoryId) || { total: 0, tanvirPaid: 0, zilamPaid: 0, fundPaid: 0 };
       existing.total += exp.amount;
       if (exp.paidBy === 'tanvir-rana') existing.tanvirPaid += exp.amount;
-      else existing.zilamPaid += exp.amount;
+      else if (exp.paidBy === 'zilam-jahid') existing.zilamPaid += exp.amount;
+      else existing.fundPaid += exp.amount;
       map.set(exp.categoryId, existing);
     }
     return Array.from(map.entries())
@@ -250,7 +257,7 @@ export const ReportsView: React.FC = () => {
                 Status: {currentMonth.status.toUpperCase()}
               </span>
               <p className="text-[11px] text-slate-400 mt-1">
-                Generated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                Generated: {formatDate(new Date().toISOString().split('T')[0])}
               </p>
             </div>
           </div>
@@ -343,23 +350,23 @@ export const ReportsView: React.FC = () => {
                     </td>
                   </tr>
                   <tr className="bg-slate-200/50 font-bold">
-                    <td className="py-2.5 px-3 text-slate-900">Final Month Settlement Action</td>
+                    <td className="py-2.5 px-3 text-slate-900">Final Month Settlement Action (Refund / Due)</td>
                     <td className="py-2.5 px-3 text-right font-mono text-xs text-slate-800">
-                      {currentSettlement.settlementReceiver === 'tanvir-rana'
-                        ? `Receive ${formatCurrency(currentSettlement.settlementAmount)}`
-                        : currentSettlement.settlementPayer === 'tanvir-rana'
-                        ? `Pay ${formatCurrency(currentSettlement.settlementAmount)}`
+                      {currentSettlement.tanvirStats.currentAccountBalance > 0.005
+                        ? `Receive ${formatCurrency(currentSettlement.tanvirStats.currentAccountBalance)}`
+                        : currentSettlement.tanvirStats.currentAccountBalance < -0.005
+                        ? `Pay ${formatCurrency(Math.abs(currentSettlement.tanvirStats.currentAccountBalance))}`
                         : 'Settled'}
                     </td>
                     <td className="py-2.5 px-3 text-right font-mono text-xs text-slate-800">
-                      {currentSettlement.settlementReceiver === 'zilam-jahid'
-                        ? `Receive ${formatCurrency(currentSettlement.settlementAmount)}`
-                        : currentSettlement.settlementPayer === 'zilam-jahid'
-                        ? `Pay ${formatCurrency(currentSettlement.settlementAmount)}`
+                      {currentSettlement.zilamStats.currentAccountBalance > 0.005
+                        ? `Receive ${formatCurrency(currentSettlement.zilamStats.currentAccountBalance)}`
+                        : currentSettlement.zilamStats.currentAccountBalance < -0.005
+                        ? `Pay ${formatCurrency(Math.abs(currentSettlement.zilamStats.currentAccountBalance))}`
                         : 'Settled'}
                     </td>
                     <td className="py-2.5 px-3 text-right font-mono text-xs text-slate-900 font-bold">
-                      {currentSettlement.settlementAmount > 0 ? formatCurrency(currentSettlement.settlementAmount) : 'Balanced'}
+                      {currentSettlement.remainingFund !== 0 ? formatCurrency(currentSettlement.remainingFund) : 'Balanced'}
                     </td>
                   </tr>
                 </tbody>
@@ -379,6 +386,7 @@ export const ReportsView: React.FC = () => {
                     <th className="py-2 px-3 text-right border-b border-slate-200">% of Total</th>
                     <th className="py-2 px-3 text-right border-b border-slate-200">Tanvir Paid</th>
                     <th className="py-2 px-3 text-right border-b border-slate-200">Zilam Paid</th>
+                    <th className="py-2 px-3 text-right border-b border-slate-200">Total Fund Paid</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
@@ -386,9 +394,10 @@ export const ReportsView: React.FC = () => {
                     <tr key={cat.id}>
                       <td className="py-1.5 px-3 font-medium text-slate-800">{cat.name}</td>
                       <td className="py-1.5 px-3 text-right font-mono font-bold text-slate-900">{formatCurrency(cat.total)}</td>
-                      <td className="py-1.5 px-3 text-right font-mono text-slate-600">{cat.pct.toFixed(1)}%</td>
+                      <td className="py-1.5 px-3 text-right font-mono text-slate-600">{(cat.pct || 0).toFixed(1)}%</td>
                       <td className="py-1.5 px-3 text-right font-mono text-emerald-700">{formatCurrency(cat.tanvirPaid)}</td>
                       <td className="py-1.5 px-3 text-right font-mono text-blue-700">{formatCurrency(cat.zilamPaid)}</td>
+                      <td className="py-1.5 px-3 text-right font-mono text-purple-700">{formatCurrency(cat.fundPaid || 0)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -431,7 +440,7 @@ export const ReportsView: React.FC = () => {
               <tbody className="divide-y divide-slate-200">
                 {monthExpenses.map((exp) => (
                   <tr key={exp.id}>
-                    <td className="py-1.5 px-3 font-medium text-slate-700">{exp.date}</td>
+                    <td className="py-1.5 px-3 font-medium text-slate-700">{formatDate(exp.date)}</td>
                     <td className="py-1.5 px-3 text-slate-600">{categoryMap.get(exp.categoryId) || 'General'}</td>
                     <td className="py-1.5 px-3 font-medium text-slate-800">{exp.description}</td>
                     <td className="py-1.5 px-3 text-right font-mono font-bold text-slate-900">{formatCurrency(exp.amount)}</td>
@@ -523,7 +532,7 @@ export const ReportsView: React.FC = () => {
               <tbody className="divide-y divide-slate-200">
                 {monthContributions.map((con) => (
                   <tr key={con.id}>
-                    <td className="py-2 px-3 font-medium text-slate-700">{con.date}</td>
+                    <td className="py-2 px-3 font-medium text-slate-700">{formatDate(con.date)}</td>
                     <td className="py-2 px-3 font-semibold text-slate-800">{con.memberId === 'tanvir-rana' ? 'Tanvir Rana' : 'Zilam Jahid'}</td>
                     <td className="py-2 px-3 text-right font-mono font-bold text-slate-900">{formatCurrency(con.amount)}</td>
                     <td className="py-2 px-3 text-slate-600">{con.paymentMethod}</td>

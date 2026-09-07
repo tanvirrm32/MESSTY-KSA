@@ -191,4 +191,8 @@ export interface AppDatabase {
   contributions: Contribution[];
   auditLogs: AuditLog[];
   settings?: AppSettings;
+  deletedExpenseIds?: string[];
+  deletedContributionIds?: string[];
+  deletedCategoryIds?: string[];
+  updatedAt?: string;
 }

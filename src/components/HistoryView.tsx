@@ -86,7 +86,7 @@ export const HistoryView: React.FC = () => {
 
       {/* Month List Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {db.months.map((m) => {
+        {[...db.months].sort((a, b) => b.id.localeCompare(a.id)).map((m) => {
           const settlement = calculateMonthlySettlement(m, db.expenses, db.contributions);
           const isSelected = m.id === currentMonth.id;
           const isFinalized = m.status === 'finalized';

@@ -76,6 +76,154 @@ export function getInitialDatabase(): AppDatabase {
     contributions: INITIAL_CONTRIBUTIONS,
     auditLogs: INITIAL_AUDIT_LOGS,
     settings: DEFAULT_APP_SETTINGS,
+    deletedExpenseIds: [],
+    deletedContributionIds: [],
+    deletedCategoryIds: [],
+  };
+}
+
+/**
+ * Intelligent non-destructive merge: guarantees no user-input data (expenses,
+ * deposits, categories, settings, months) is ever lost when system updates,
+ * feature updates, or multi-device syncs occur.
+ */
+export function mergeDatabases(local: AppDatabase, remote: AppDatabase): AppDatabase {
+  const deletedExpenseIds = new Set([
+    ...(local.deletedExpenseIds || []),
+    ...(remote.deletedExpenseIds || []),
+  ]);
+  const deletedContributionIds = new Set([
+    ...(local.deletedContributionIds || []),
+    ...(remote.deletedContributionIds || []),
+  ]);
+  const deletedCategoryIds = new Set([
+    ...(local.deletedCategoryIds || []),
+    ...(remote.deletedCategoryIds || []),
+  ]);
+
+  // Merge expenses by ID, preserving whichever is newer and never losing unique expenses
+  const expenseMap = new Map<string, Expense>();
+  for (const e of local.expenses || []) {
+    if (!deletedExpenseIds.has(e.id)) {
+      expenseMap.set(e.id, e);
+    }
+  }
+  for (const re of remote.expenses || []) {
+    if (deletedExpenseIds.has(re.id)) continue;
+    const existing = expenseMap.get(re.id);
+    if (!existing) {
+      expenseMap.set(re.id, re);
+    } else {
+      const exTime = new Date(existing.updatedAt || existing.createdAt || 0).getTime();
+      const reTime = new Date(re.updatedAt || re.createdAt || 0).getTime();
+      if (reTime >= exTime) {
+        expenseMap.set(re.id, re);
+      }
+    }
+  }
+
+  // Merge contributions by ID
+  const contributionMap = new Map<string, Contribution>();
+  for (const c of local.contributions || []) {
+    if (!deletedContributionIds.has(c.id)) {
+      contributionMap.set(c.id, c);
+    }
+  }
+  for (const rc of remote.contributions || []) {
+    if (deletedContributionIds.has(rc.id)) continue;
+    const existing = contributionMap.get(rc.id);
+    if (!existing) {
+      contributionMap.set(rc.id, rc);
+    } else {
+      const exTime = new Date(existing.updatedAt || existing.createdAt || 0).getTime();
+      const rcTime = new Date(rc.updatedAt || rc.createdAt || 0).getTime();
+      if (rcTime >= exTime) {
+        contributionMap.set(rc.id, rc);
+      }
+    }
+  }
+
+  // Merge months
+  const monthMap = new Map<string, MessMonth>();
+  for (const m of local.months || []) {
+    monthMap.set(m.id, m);
+  }
+  for (const rm of remote.months || []) {
+    const existing = monthMap.get(rm.id);
+    if (!existing) {
+      monthMap.set(rm.id, rm);
+    } else {
+      // Keep finalized status if either finalized
+      if (rm.status === 'finalized' || !existing.name) {
+        monthMap.set(rm.id, rm);
+      }
+    }
+  }
+  let mergedMonths = Array.from(monthMap.values());
+  if (mergedMonths.length === 0) {
+    mergedMonths = [...INITIAL_MONTHS];
+  }
+
+  // Merge categories (all defaults + all custom)
+  const categoryMap = new Map<string, Category>();
+  for (const dc of DEFAULT_CATEGORIES) {
+    categoryMap.set(dc.id, dc);
+  }
+  for (const lc of local.categories || []) {
+    if (!deletedCategoryIds.has(lc.id)) {
+      categoryMap.set(lc.id, lc);
+    }
+  }
+  for (const rc of remote.categories || []) {
+    if (!deletedCategoryIds.has(rc.id)) {
+      categoryMap.set(rc.id, rc);
+    }
+  }
+
+  // Merge settings: preserve user settings over defaults
+  const base = DEFAULT_APP_SETTINGS;
+  const lSet = local.settings || base;
+  const rSet = remote.settings || base;
+
+  const mergedSettings: AppSettings = {
+    appName: (rSet.appName && rSet.appName.trim()) || (lSet.appName && lSet.appName.trim()) || base.appName,
+    appSubtitle: rSet.appSubtitle !== undefined ? rSet.appSubtitle : lSet.appSubtitle !== undefined ? lSet.appSubtitle : base.appSubtitle,
+    messAddress: rSet.messAddress !== undefined ? rSet.messAddress : lSet.messAddress !== undefined ? lSet.messAddress : '',
+    contactNumber: rSet.contactNumber !== undefined ? rSet.contactNumber : lSet.contactNumber !== undefined ? lSet.contactNumber : '',
+    currencySymbol: (rSet.currencySymbol && rSet.currencySymbol.trim()) || (lSet.currencySymbol && lSet.currencySymbol.trim()) || base.currencySymbol,
+    notes: rSet.notes !== undefined ? rSet.notes : lSet.notes !== undefined ? lSet.notes : '',
+    auth: {
+      enabled: rSet.auth?.enabled !== undefined ? rSet.auth.enabled : lSet.auth?.enabled !== undefined ? lSet.auth.enabled : base.auth.enabled,
+      requirePin: rSet.auth?.requirePin !== undefined ? rSet.auth.requirePin : lSet.auth?.requirePin !== undefined ? lSet.auth.requirePin : base.auth.requirePin,
+      tanvirPin: rSet.auth?.tanvirPin || lSet.auth?.tanvirPin || base.auth.tanvirPin,
+      zilamPin: rSet.auth?.zilamPin || lSet.auth?.zilamPin || base.auth.zilamPin,
+    },
+  };
+
+  // Merge audit logs (union by ID, sorted by timestamp descending)
+  const auditMap = new Map<string, AuditLog>();
+  for (const log of local.auditLogs || []) {
+    auditMap.set(log.id, log);
+  }
+  for (const rlog of remote.auditLogs || []) {
+    auditMap.set(rlog.id, rlog);
+  }
+  const mergedAuditLogs = Array.from(auditMap.values()).sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
+
+  return {
+    version: Math.max(local.version || 1, remote.version || 1),
+    months: mergedMonths,
+    categories: Array.from(categoryMap.values()),
+    expenses: Array.from(expenseMap.values()),
+    contributions: Array.from(contributionMap.values()),
+    auditLogs: mergedAuditLogs,
+    settings: mergedSettings,
+    deletedExpenseIds: Array.from(deletedExpenseIds),
+    deletedContributionIds: Array.from(deletedContributionIds),
+    deletedCategoryIds: Array.from(deletedCategoryIds),
+    updatedAt: new Date().toISOString(),
   };
 }
 
@@ -84,42 +232,44 @@ export function loadDatabase(): AppDatabase {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
       const initial = getInitialDatabase();
-      saveDatabase(initial);
       return initial;
     }
-    const parsed = JSON.parse(raw) as AppDatabase;
-    // ensure required fields exist
-    if (!parsed.expenses || !parsed.contributions || !parsed.months) {
-      const initial = getInitialDatabase();
-      saveDatabase(initial);
-      return initial;
-    }
-    // Preserve user settings without force-overwriting custom values
-    if (!parsed.settings) {
-      parsed.settings = DEFAULT_APP_SETTINGS;
-    } else {
-      parsed.settings = {
-        ...DEFAULT_APP_SETTINGS,
-        ...parsed.settings,
-        auth: {
-          ...DEFAULT_APP_SETTINGS.auth,
-          ...(parsed.settings.auth || {}),
-        },
-      };
-    }
+    const parsed = JSON.parse(raw) as Partial<AppDatabase>;
 
-    // Permanently remove sample demo expenses and contributions if present in storage
-    parsed.expenses = (parsed.expenses || []).filter((e) => !SAMPLE_EXPENSE_IDS.has(e.id));
-    parsed.contributions = (parsed.contributions || []).filter(
-      (c) => !SAMPLE_CONTRIBUTION_IDS.has(c.id) && !SAMPLE_EXPENSE_IDS.has(c.linkedExpenseId || '')
-    );
+    // Non-destructive preservation: never wipe user-entered data
+    const months = Array.isArray(parsed.months) && parsed.months.length > 0 ? parsed.months : INITIAL_MONTHS;
+    const categories = Array.isArray(parsed.categories) && parsed.categories.length > 0 ? parsed.categories : DEFAULT_CATEGORIES;
+    const expenses = Array.isArray(parsed.expenses) ? parsed.expenses : [];
+    const contributions = Array.isArray(parsed.contributions) ? parsed.contributions : [];
+    const auditLogs = Array.isArray(parsed.auditLogs) ? parsed.auditLogs : INITIAL_AUDIT_LOGS;
 
-    saveDatabase(parsed);
-    return parsed;
+    const settings: AppSettings = {
+      ...DEFAULT_APP_SETTINGS,
+      ...(parsed.settings || {}),
+      auth: {
+        ...DEFAULT_APP_SETTINGS.auth,
+        ...(parsed.settings?.auth || {}),
+      },
+    };
+
+    const loaded: AppDatabase = {
+      version: parsed.version || 1,
+      months,
+      categories,
+      expenses,
+      contributions,
+      auditLogs,
+      settings,
+      deletedExpenseIds: parsed.deletedExpenseIds || [],
+      deletedContributionIds: parsed.deletedContributionIds || [],
+      deletedCategoryIds: parsed.deletedCategoryIds || [],
+      updatedAt: parsed.updatedAt,
+    };
+
+    return loaded;
   } catch (err) {
-    console.error('Failed to load database from localStorage, initializing default', err);
-    const initial = getInitialDatabase();
-    return initial;
+    console.error('Failed to load database from localStorage, recovering initial database structure', err);
+    return getInitialDatabase();
   }
 }
 
@@ -192,5 +342,17 @@ export function importDatabaseJSON(jsonString: string): AppDatabase {
     expenses: parsed.expenses,
     contributions: parsed.contributions,
     auditLogs: parsed.auditLogs || [],
+    settings: parsed.settings ? {
+      ...DEFAULT_APP_SETTINGS,
+      ...parsed.settings,
+      auth: {
+        ...DEFAULT_APP_SETTINGS.auth,
+        ...(parsed.settings.auth || {}),
+      },
+    } : DEFAULT_APP_SETTINGS,
+    deletedExpenseIds: parsed.deletedExpenseIds || [],
+    deletedContributionIds: parsed.deletedContributionIds || [],
+    deletedCategoryIds: parsed.deletedCategoryIds || [],
+    updatedAt: parsed.updatedAt || new Date().toISOString(),
   };
 }

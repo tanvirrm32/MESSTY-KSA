@@ -1,4 +1,5 @@
 import { MessMonth, MonthlySettlementSummary, Expense, Contribution, Category, AppSettings } from '../types';
+import { formatDate } from './calcEngine';
 
 export interface PrintReportOptions {
   month: MessMonth;
@@ -25,15 +26,18 @@ export function openPrintReportInNewTab({
   const appSubtitle = settings?.appSubtitle || 'Monthly Living Cost Management';
   const messAddress = settings?.messAddress || 'Saudi Arabia';
   const currency = settings?.currencySymbol || 'SAR';
-  const genDate = new Date().toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
+  const genDate = formatDate(new Date().toISOString().split('T')[0]);
   const genTime = new Date().toLocaleTimeString('en-US', {
     hour: '2-digit',
     minute: '2-digit',
   });
+
+  const sortedExpenses = [...expenses].sort(
+    (a, b) => b.date.localeCompare(a.date) || (b.createdAt || '').localeCompare(a.createdAt || '')
+  );
+  const sortedContributions = [...contributions].sort(
+    (a, b) => b.date.localeCompare(a.date) || (b.createdAt || '').localeCompare(a.createdAt || '')
+  );
 
   const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
 
@@ -506,26 +510,26 @@ export function openPrintReportInNewTab({
             <td class="text-right font-mono font-bold">${formatCurrency(settlement.tanvirStats.currentAccountBalance + settlement.zilamStats.currentAccountBalance)}</td>
           </tr>
           <tr class="bg-action">
-            <td>Final Month Settlement Action</td>
+            <td>Final Month Settlement Action (Refund / Due)</td>
             <td class="text-right font-mono">
               ${
-                settlement.settlementReceiver === 'tanvir-rana'
-                  ? `Receive ${formatCurrency(settlement.settlementAmount)}`
-                  : settlement.settlementPayer === 'tanvir-rana'
-                  ? `Pay ${formatCurrency(settlement.settlementAmount)}`
+                settlement.tanvirStats.currentAccountBalance > 0.005
+                  ? `Receive ${formatCurrency(settlement.tanvirStats.currentAccountBalance)}`
+                  : settlement.tanvirStats.currentAccountBalance < -0.005
+                  ? `Pay ${formatCurrency(Math.abs(settlement.tanvirStats.currentAccountBalance))}`
                   : 'Settled'
               }
             </td>
             <td class="text-right font-mono">
               ${
-                settlement.settlementReceiver === 'zilam-jahid'
-                  ? `Receive ${formatCurrency(settlement.settlementAmount)}`
-                  : settlement.settlementPayer === 'zilam-jahid'
-                  ? `Pay ${formatCurrency(settlement.settlementAmount)}`
+                settlement.zilamStats.currentAccountBalance > 0.005
+                  ? `Receive ${formatCurrency(settlement.zilamStats.currentAccountBalance)}`
+                  : settlement.zilamStats.currentAccountBalance < -0.005
+                  ? `Pay ${formatCurrency(Math.abs(settlement.zilamStats.currentAccountBalance))}`
                   : 'Settled'
               }
             </td>
-            <td class="text-right font-mono font-bold text-blue">${formatCurrency(settlement.settlementAmount)}</td>
+            <td class="text-right font-mono font-bold text-blue">${settlement.remainingFund !== 0 ? formatCurrency(settlement.remainingFund) : 'Balanced'}</td>
           </tr>
         </tbody>
       </table>
@@ -573,11 +577,11 @@ export function openPrintReportInNewTab({
           </tr>
         </thead>
         <tbody>
-          ${expenses
+          ${sortedExpenses
             .map(
               (exp) => `
             <tr>
-              <td>${exp.date}</td>
+              <td>${formatDate(exp.date)}</td>
               <td>${categoryMap.get(exp.categoryId) || 'General'}</td>
               <td class="font-semibold">${exp.description}</td>
               <td>${exp.paidBy === 'tanvir-rana' ? 'Tanvir Rana' : 'Zilam Jahid'}</td>
@@ -603,11 +607,11 @@ export function openPrintReportInNewTab({
           </tr>
         </thead>
         <tbody>
-          ${contributions
+          ${sortedContributions
             .map(
               (c) => `
             <tr>
-              <td>${c.date}</td>
+              <td>${formatDate(c.date)}</td>
               <td class="font-semibold">${c.memberId === 'tanvir-rana' ? 'Tanvir Rana' : 'Zilam Jahid'}</td>
               <td class="text-right font-mono font-bold text-emerald">${formatCurrency(c.amount)}</td>
               <td>${c.paymentMethod}</td>
@@ -682,11 +686,11 @@ export function openPrintReportInNewTab({
           </tr>
         </thead>
         <tbody>
-          ${expenses
+          ${sortedExpenses
             .map(
               (exp) => `
             <tr>
-              <td>${exp.date}</td>
+              <td>${formatDate(exp.date)}</td>
               <td>${categoryMap.get(exp.categoryId) || 'General'}</td>
               <td class="font-semibold">${exp.description}</td>
               <td>${exp.paidBy === 'tanvir-rana' ? 'Tanvir Rana' : 'Zilam Jahid'}</td>
@@ -736,11 +740,11 @@ export function openPrintReportInNewTab({
           </tr>
         </thead>
         <tbody>
-          ${expenses
+          ${sortedExpenses
             .map(
               (exp) => `
             <tr>
-              <td>${exp.date}</td>
+              <td>${formatDate(exp.date)}</td>
               <td>${categoryMap.get(exp.categoryId) || 'General'}</td>
               <td class="font-semibold">${exp.description}</td>
               <td>${exp.paidBy === 'tanvir-rana' ? 'Tanvir Rana' : 'Zilam Jahid'}</td>
@@ -787,11 +791,11 @@ export function openPrintReportInNewTab({
           </tr>
         </thead>
         <tbody>
-          ${contributions
+          ${sortedContributions
             .map(
               (c) => `
             <tr>
-              <td>${c.date}</td>
+              <td>${formatDate(c.date)}</td>
               <td class="font-semibold">${c.memberId === 'tanvir-rana' ? 'Tanvir Rana' : 'Zilam Jahid'}</td>
               <td class="text-right font-mono font-bold text-emerald">${formatCurrency(c.amount)}</td>
               <td>${c.paymentMethod}</td>

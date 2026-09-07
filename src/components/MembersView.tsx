@@ -11,7 +11,7 @@ import {
   Calendar,
 } from 'lucide-react';
 import { useMess } from '../context/MessContext';
-import { formatCurrency } from '../utils/calcEngine';
+import { formatCurrency, formatDate } from '../utils/calcEngine';
 
 export const MembersView: React.FC = () => {
   const {
@@ -95,7 +95,7 @@ export const MembersView: React.FC = () => {
       });
     }
 
-    return list.sort((a, b) => a.date.localeCompare(b.date));
+    return list.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
   }, [db.expenses, memberContributions, currentMonth.id, selectedMemberId, isTanvir, categoryMap]);
 
   const handlePrint = () => {
@@ -341,7 +341,7 @@ export const MembersView: React.FC = () => {
                 memberLedgerEntries.map((entry, idx) => (
                   <tr key={`${entry.id}-${idx}`} className="hover:bg-slate-50/70 transition-colors">
                     <td className="py-3 px-4 font-medium text-slate-700 whitespace-nowrap">
-                      {entry.date}
+                      {formatDate(entry.date)}
                     </td>
                     <td className="py-3 px-3 whitespace-nowrap">
                       <span

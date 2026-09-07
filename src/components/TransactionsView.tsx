@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useMess } from '../context/MessContext';
 import { Expense } from '../types';
-import { formatCurrency } from '../utils/calcEngine';
+import { formatCurrency, formatDate } from '../utils/calcEngine';
 import { exportExpensesToCSV } from '../utils/exportUtils';
 import { ConfirmModal } from './ConfirmModal';
 
@@ -93,7 +93,7 @@ export const TransactionsView: React.FC = () => {
       if (endDate && e.date > endDate) return false;
 
       return true;
-    });
+    }).sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt || '').localeCompare(a.createdAt || ''));
   }, [
     baseExpenses,
     searchQuery,
@@ -444,7 +444,7 @@ export const TransactionsView: React.FC = () => {
                   >
                     {/* Date */}
                     <td className="py-3 px-4 font-medium text-slate-700 whitespace-nowrap">
-                      {exp.date}
+                      {formatDate(exp.date)}
                     </td>
 
                     {/* ID */}

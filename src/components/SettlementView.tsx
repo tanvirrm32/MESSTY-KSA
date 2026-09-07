@@ -150,9 +150,9 @@ export const SettlementView: React.FC = () => {
               {currentSettlement.settlementMessage}
             </h3>
             <p className="text-xs text-slate-600 mt-2 max-w-xl">
-              Calculated using the verified financial rule: <br />
+              Calculated based on actual contributions vs expense share: <br />
               <code className="font-mono text-[11px] bg-white/70 px-1.5 py-0.5 rounded text-slate-800 border border-slate-200/60">
-                Net Position = Actual Amount Paid − Amount That Member Is Responsible For
+                Deposit − Expense Share = Member Refund from Remaining Fund
               </code>
             </p>
           </div>
@@ -160,13 +160,13 @@ export const SettlementView: React.FC = () => {
           <div className="shrink-0">
             <div className="bg-white p-4 rounded-xl border border-slate-200/80 text-center shadow-xs">
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                Transfer Amount
+                Remaining Fund
               </span>
               <span className="text-2xl font-black font-mono text-slate-900 block mt-0.5">
-                {formatCurrency(currentSettlement.settlementAmount)}
+                {formatCurrency(currentSettlement.remainingFund)}
               </span>
               <span className="text-[10px] text-slate-500 font-medium">
-                {currentSettlement.isBalanced ? 'No transfer needed' : 'Exact transfer required'}
+                {currentSettlement.isBalanced ? 'No refund needed' : 'Available for member refund'}
               </span>
             </div>
           </div>
@@ -189,16 +189,16 @@ export const SettlementView: React.FC = () => {
             </div>
             <span
               className={`text-xs font-bold px-2.5 py-1 rounded-lg ${
-                currentSettlement.tanvirStats.netExpensePosition > 0.005
+                currentSettlement.tanvirStats.currentAccountBalance > 0.005
                   ? 'bg-emerald-100 text-emerald-800'
-                  : currentSettlement.tanvirStats.netExpensePosition < -0.005
+                  : currentSettlement.tanvirStats.currentAccountBalance < -0.005
                   ? 'bg-rose-100 text-rose-800'
                   : 'bg-slate-100 text-slate-700'
               }`}
             >
-              {currentSettlement.tanvirStats.netExpensePosition > 0.005
+              {currentSettlement.tanvirStats.currentAccountBalance > 0.005
                 ? 'To Receive'
-                : currentSettlement.tanvirStats.netExpensePosition < -0.005
+                : currentSettlement.tanvirStats.currentAccountBalance < -0.005
                 ? 'To Pay'
                 : 'Balanced'}
             </span>
@@ -272,17 +272,17 @@ export const SettlementView: React.FC = () => {
               <span className="text-slate-900">Final Settlement Standing:</span>
               <span
                 className={`font-mono text-sm ${
-                  currentSettlement.settlementReceiver === 'tanvir-rana'
+                  currentSettlement.tanvirStats.currentAccountBalance > 0.005
                     ? 'text-emerald-700'
-                    : currentSettlement.settlementPayer === 'tanvir-rana'
+                    : currentSettlement.tanvirStats.currentAccountBalance < -0.005
                     ? 'text-rose-700'
                     : 'text-slate-700'
                 }`}
               >
-                {currentSettlement.settlementReceiver === 'tanvir-rana'
-                  ? `Receive ${formatCurrency(currentSettlement.settlementAmount)}`
-                  : currentSettlement.settlementPayer === 'tanvir-rana'
-                  ? `Pay ${formatCurrency(currentSettlement.settlementAmount)}`
+                {currentSettlement.tanvirStats.currentAccountBalance > 0.005
+                  ? `Receive ${formatCurrency(currentSettlement.tanvirStats.currentAccountBalance)}`
+                  : currentSettlement.tanvirStats.currentAccountBalance < -0.005
+                  ? `Pay ${formatCurrency(Math.abs(currentSettlement.tanvirStats.currentAccountBalance))}`
                   : 'Balanced (SAR 0.00)'}
               </span>
             </div>
@@ -303,16 +303,16 @@ export const SettlementView: React.FC = () => {
             </div>
             <span
               className={`text-xs font-bold px-2.5 py-1 rounded-lg ${
-                currentSettlement.zilamStats.netExpensePosition > 0.005
+                currentSettlement.zilamStats.currentAccountBalance > 0.005
                   ? 'bg-emerald-100 text-emerald-800'
-                  : currentSettlement.zilamStats.netExpensePosition < -0.005
+                  : currentSettlement.zilamStats.currentAccountBalance < -0.005
                   ? 'bg-rose-100 text-rose-800'
                   : 'bg-slate-100 text-slate-700'
               }`}
             >
-              {currentSettlement.zilamStats.netExpensePosition > 0.005
+              {currentSettlement.zilamStats.currentAccountBalance > 0.005
                 ? 'To Receive'
-                : currentSettlement.zilamStats.netExpensePosition < -0.005
+                : currentSettlement.zilamStats.currentAccountBalance < -0.005
                 ? 'To Pay'
                 : 'Balanced'}
             </span>
@@ -386,17 +386,17 @@ export const SettlementView: React.FC = () => {
               <span className="text-slate-900">Final Settlement Standing:</span>
               <span
                 className={`font-mono text-sm ${
-                  currentSettlement.settlementReceiver === 'zilam-jahid'
+                  currentSettlement.zilamStats.currentAccountBalance > 0.005
                     ? 'text-emerald-700'
-                    : currentSettlement.settlementPayer === 'zilam-jahid'
+                    : currentSettlement.zilamStats.currentAccountBalance < -0.005
                     ? 'text-rose-700'
                     : 'text-slate-700'
                 }`}
               >
-                {currentSettlement.settlementReceiver === 'zilam-jahid'
-                  ? `Receive ${formatCurrency(currentSettlement.settlementAmount)}`
-                  : currentSettlement.settlementPayer === 'zilam-jahid'
-                  ? `Pay ${formatCurrency(currentSettlement.settlementAmount)}`
+                {currentSettlement.zilamStats.currentAccountBalance > 0.005
+                  ? `Receive ${formatCurrency(currentSettlement.zilamStats.currentAccountBalance)}`
+                  : currentSettlement.zilamStats.currentAccountBalance < -0.005
+                  ? `Pay ${formatCurrency(Math.abs(currentSettlement.zilamStats.currentAccountBalance))}`
                   : 'Balanced (SAR 0.00)'}
               </span>
             </div>
@@ -411,7 +411,7 @@ export const SettlementView: React.FC = () => {
             Reconciliation & Settlement Ledger Table
           </h4>
           <span className="text-xs font-mono text-slate-500">
-            Audit Check: Δ = {(currentSettlement.tanvirStats.netExpensePosition + currentSettlement.zilamStats.netExpensePosition).toFixed(2)} SAR
+            Audit Check: Δ = {(((currentSettlement?.tanvirStats?.netExpensePosition || 0) + (currentSettlement?.zilamStats?.netExpensePosition || 0))).toFixed(2)} SAR
           </span>
         </div>
 
@@ -485,23 +485,23 @@ export const SettlementView: React.FC = () => {
                 </td>
               </tr>
               <tr className="bg-amber-50/60 font-bold border-t border-amber-200">
-                <td className="py-3 px-4 text-amber-950">9. Settlement Action to Equalize Accounts</td>
+                <td className="py-3 px-4 text-amber-950">9. Settlement Action (Refund / Due)</td>
                 <td className="py-3 px-4 text-right font-mono text-xs">
-                  {currentSettlement.settlementReceiver === 'tanvir-rana'
-                    ? `Receive ${formatCurrency(currentSettlement.settlementAmount)}`
-                    : currentSettlement.settlementPayer === 'tanvir-rana'
-                    ? `Pay ${formatCurrency(currentSettlement.settlementAmount)}`
+                  {currentSettlement.tanvirStats.currentAccountBalance > 0.005
+                    ? `Receive ${formatCurrency(currentSettlement.tanvirStats.currentAccountBalance)}`
+                    : currentSettlement.tanvirStats.currentAccountBalance < -0.005
+                    ? `Pay ${formatCurrency(Math.abs(currentSettlement.tanvirStats.currentAccountBalance))}`
                     : 'Balanced'}
                 </td>
                 <td className="py-3 px-4 text-right font-mono text-xs">
-                  {currentSettlement.settlementReceiver === 'zilam-jahid'
-                    ? `Receive ${formatCurrency(currentSettlement.settlementAmount)}`
-                    : currentSettlement.settlementPayer === 'zilam-jahid'
-                    ? `Pay ${formatCurrency(currentSettlement.settlementAmount)}`
+                  {currentSettlement.zilamStats.currentAccountBalance > 0.005
+                    ? `Receive ${formatCurrency(currentSettlement.zilamStats.currentAccountBalance)}`
+                    : currentSettlement.zilamStats.currentAccountBalance < -0.005
+                    ? `Pay ${formatCurrency(Math.abs(currentSettlement.zilamStats.currentAccountBalance))}`
                     : 'Balanced'}
                 </td>
                 <td className="py-3 px-4 text-right font-mono text-amber-950 font-black">
-                  {currentSettlement.settlementAmount > 0 ? formatCurrency(currentSettlement.settlementAmount) : 'Balanced'}
+                  {currentSettlement.remainingFund !== 0 ? formatCurrency(currentSettlement.remainingFund) : 'Balanced'}
                 </td>
               </tr>
             </tbody>

@@ -10,7 +10,7 @@ import {
   MEMBERS,
   AppDatabase,
 } from '../types';
-import { formatCurrency } from './calcEngine';
+import { formatCurrency, formatDate } from './calcEngine';
 
 /**
  * Downloads a file in browser
@@ -35,6 +35,9 @@ export function exportExpensesToCSV(
   monthName: string
 ) {
   const catMap = new Map(categories.map((c) => [c.id, c.name]));
+  const sortedExpenses = [...expenses].sort(
+    (a, b) => b.date.localeCompare(a.date) || (b.createdAt || '').localeCompare(a.createdAt || '')
+  );
   const headers = [
     'Date',
     'Transaction ID',
@@ -48,16 +51,16 @@ export function exportExpensesToCSV(
     'Notes',
   ];
 
-  const rows = expenses.map((e) => [
-    e.date,
+  const rows = sortedExpenses.map((e) => [
+    formatDate(e.date),
     e.id,
     `"${catMap.get(e.categoryId) || e.categoryId}"`,
     `"${e.description.replace(/"/g, '""')}"`,
-    e.amount.toFixed(2),
+    (Number(e.amount) || 0).toFixed(2),
     e.paidBy === 'total-fund' ? 'Total Fund' : e.paidBy === 'tanvir-rana' ? 'Tanvir Rana' : 'Zilam Jahid',
     e.expenseType === 'common' ? 'Common' : 'Personal',
-    e.tanvirShare.toFixed(2),
-    e.zilamShare.toFixed(2),
+    (Number(e.tanvirShare) || 0).toFixed(2),
+    (Number(e.zilamShare) || 0).toFixed(2),
     `"${(e.notes || '').replace(/"/g, '""')}"`,
   ]);
 
@@ -73,6 +76,9 @@ export function exportContributionsToCSV(
   contributions: Contribution[],
   monthName: string
 ) {
+  const sortedContributions = [...contributions].sort(
+    (a, b) => b.date.localeCompare(a.date) || (b.createdAt || '').localeCompare(a.createdAt || '')
+  );
   const headers = [
     'Date',
     'Contribution ID',
@@ -83,11 +89,11 @@ export function exportContributionsToCSV(
     'Notes',
   ];
 
-  const rows = contributions.map((c) => [
-    c.date,
+  const rows = sortedContributions.map((c) => [
+    formatDate(c.date),
     c.id,
     c.memberId === 'tanvir-rana' ? 'Tanvir Rana' : 'Zilam Jahid',
-    c.amount.toFixed(2),
+    (Number(c.amount) || 0).toFixed(2),
     c.paymentMethod,
     `"${(c.reference || '').replace(/"/g, '""')}"`,
     `"${(c.notes || '').replace(/"/g, '""')}"`,
@@ -143,10 +149,13 @@ export function exportMonthlyReportToExcel(
   XLSX.utils.book_append_sheet(wb, wsSummary, 'Settlement Summary');
 
   // Sheet 2: Expenses
+  const sortedExpenses = [...expenses].sort(
+    (a, b) => b.date.localeCompare(a.date) || (b.createdAt || '').localeCompare(a.createdAt || '')
+  );
   const expenseData = [
     ['Date', 'ID', 'Category', 'Description', 'Amount (SAR)', 'Paid By', 'Type', 'Tanvir Share', 'Zilam Share', 'Notes'],
-    ...expenses.map((e) => [
-      e.date,
+    ...sortedExpenses.map((e) => [
+      formatDate(e.date),
       e.id,
       catMap.get(e.categoryId) || e.categoryId,
       e.description,
@@ -162,10 +171,13 @@ export function exportMonthlyReportToExcel(
   XLSX.utils.book_append_sheet(wb, wsExpenses, 'Expenses');
 
   // Sheet 3: Contributions
+  const sortedContributions = [...contributions].sort(
+    (a, b) => b.date.localeCompare(a.date) || (b.createdAt || '').localeCompare(a.createdAt || '')
+  );
   const contributionData = [
     ['Date', 'ID', 'Member', 'Amount (SAR)', 'Payment Method', 'Reference', 'Notes'],
-    ...contributions.map((c) => [
-      c.date,
+    ...sortedContributions.map((c) => [
+      formatDate(c.date),
       c.id,
       c.memberId === 'tanvir-rana' ? 'Tanvir Rana' : 'Zilam Jahid',
       c.amount,
@@ -209,7 +221,7 @@ export function exportSettlementPDF(
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(100, 100, 100);
   doc.text(`Official Monthly Settlement Statement • ${settlement.monthName}`, 14, 25);
-  doc.text(`Status: ${settlement.status.toUpperCase()} | Generated: ${new Date().toLocaleDateString()}`, 14, 31);
+  doc.text(`Status: ${settlement.status.toUpperCase()} | Generated: ${formatDate(new Date().toISOString().split('T')[0])}`, 14, 31);
 
   // Settlement Verdict Banner
   doc.setDrawColor(210, 220, 230);
@@ -239,7 +251,11 @@ export function exportSettlementPDF(
       ['Total Expense Responsibility', formatCurrency(settlement.tanvirStats.totalExpenseResponsibility), formatCurrency(settlement.zilamStats.totalExpenseResponsibility), formatCurrency(settlement.totalExpenses)],
       ['Net Expense Position (Paid - Share)', formatCurrency(settlement.tanvirStats.netExpensePosition), formatCurrency(settlement.zilamStats.netExpensePosition), 'SAR 0.00'],
       ['Current Account Balance', formatCurrency(settlement.tanvirStats.currentAccountBalance), formatCurrency(settlement.zilamStats.currentAccountBalance), formatCurrency(settlement.tanvirStats.currentAccountBalance + settlement.zilamStats.currentAccountBalance)],
-      ['Settlement Action', settlement.settlementReceiver === 'tanvir-rana' ? 'Receive ' + formatCurrency(settlement.settlementAmount) : settlement.settlementPayer === 'tanvir-rana' ? 'Pay ' + formatCurrency(settlement.settlementAmount) : 'Settled', settlement.settlementReceiver === 'zilam-jahid' ? 'Receive ' + formatCurrency(settlement.settlementAmount) : settlement.settlementPayer === 'zilam-jahid' ? 'Pay ' + formatCurrency(settlement.settlementAmount) : 'Settled', formatCurrency(settlement.settlementAmount)],
+      ['Settlement Action',
+        settlement.tanvirStats.currentAccountBalance > 0.005 ? 'Receive ' + formatCurrency(settlement.tanvirStats.currentAccountBalance) : settlement.tanvirStats.currentAccountBalance < -0.005 ? 'Pay ' + formatCurrency(Math.abs(settlement.tanvirStats.currentAccountBalance)) : 'Settled',
+        settlement.zilamStats.currentAccountBalance > 0.005 ? 'Receive ' + formatCurrency(settlement.zilamStats.currentAccountBalance) : settlement.zilamStats.currentAccountBalance < -0.005 ? 'Pay ' + formatCurrency(Math.abs(settlement.zilamStats.currentAccountBalance)) : 'Settled',
+        formatCurrency(settlement.remainingFund)
+      ],
     ],
     theme: 'grid',
     headStyles: { fillColor: [30, 41, 59], textColor: 255, fontSize: 10, fontStyle: 'bold' },
@@ -254,14 +270,17 @@ export function exportSettlementPDF(
   doc.setTextColor(30, 41, 59);
   doc.text('Monthly Expenses Detail', 14, lastY + 12);
 
-  const expenseRows = expenses.slice(0, 25).map((e) => [
-    e.date,
+  const sortedPDFExpenses = [...expenses].sort(
+    (a, b) => b.date.localeCompare(a.date) || (b.createdAt || '').localeCompare(a.createdAt || '')
+  );
+  const expenseRows = sortedPDFExpenses.slice(0, 30).map((e) => [
+    formatDate(e.date),
     catMap.get(e.categoryId) || 'General',
     e.description,
     e.paidBy === 'total-fund' ? 'Total Fund' : e.paidBy === 'tanvir-rana' ? 'Tanvir' : 'Zilam',
     e.expenseType === 'common' ? 'Common' : 'Personal',
-    `SAR ${e.amount.toFixed(2)}`,
-    `T: ${e.tanvirShare.toFixed(2)} | Z: ${e.zilamShare.toFixed(2)}`,
+    `SAR ${(Number(e.amount) || 0).toFixed(2)}`,
+    `T: ${(Number(e.tanvirShare) || 0).toFixed(2)} | Z: ${(Number(e.zilamShare) || 0).toFixed(2)}`,
   ]);
 
   autoTable(doc, {

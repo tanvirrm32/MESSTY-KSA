@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, DollarSign, Calendar, Tag, User, Sliders, AlertCircle, Landmark } from 'lucide-react';
 import { useMess } from '../context/MessContext';
-import { formatCurrency, roundCurrency } from '../utils/calcEngine';
+import { formatCurrency, roundCurrency, formatDate } from '../utils/calcEngine';
 
 export const ExpenseModal: React.FC = () => {
   const {
@@ -222,10 +222,15 @@ export const ExpenseModal: React.FC = () => {
           {/* Date & Category */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label className="flex items-center justify-between text-xs font-semibold text-slate-700 mb-1">
                 <span className="flex items-center gap-1.5">
                   <Calendar className="w-3.5 h-3.5 text-slate-400" /> Date *
                 </span>
+                {date && (
+                  <span className="text-[11px] font-mono font-medium text-emerald-700">
+                    {formatDate(date)}
+                  </span>
+                )}
               </label>
               <input
                 type="date"
