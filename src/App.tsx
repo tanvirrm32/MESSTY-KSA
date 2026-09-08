@@ -12,6 +12,7 @@ import { HistoryView } from './components/HistoryView';
 import { SettingsView } from './components/SettingsView';
 import { ExpenseModal } from './components/ExpenseModal';
 import { ContributionModal } from './components/ContributionModal';
+import { InactivityWarningModal } from './components/InactivityWarningModal';
 import { LoginScreen } from './components/LoginScreen';
 import { MobileBottomNav } from './components/MobileBottomNav';
 
@@ -59,9 +60,10 @@ const AppContent: React.FC = () => {
         <MobileBottomNav onOpenMenu={() => setMobileSidebarOpen(true)} />
       </div>
 
-      {/* Global Transaction Modals */}
+      {/* Global Transaction Modals & Inactivity Warning */}
       <ExpenseModal />
       <ContributionModal />
+      <InactivityWarningModal />
     </div>
   );
 };

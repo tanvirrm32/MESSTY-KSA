@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Building2, ShieldCheck, KeyRound, ArrowRight, UserCheck, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { Building2, ShieldCheck, KeyRound, ArrowRight, UserCheck, Eye, EyeOff, AlertCircle, Clock, X } from 'lucide-react';
 import { useMess } from '../context/MessContext';
 
 export const LoginScreen: React.FC = () => {
-  const { appSettings, loginMember, continueAsGuest } = useMess();
+  const { appSettings, loginMember, continueAsGuest, inactivityNotice, clearInactivityNotice } = useMess();
 
   const [selectedMember, setSelectedMember] = useState<'tanvir-rana' | 'zilam-jahid' | null>(null);
   const [pin, setPin] = useState('');
@@ -52,6 +52,22 @@ export const LoginScreen: React.FC = () => {
 
         {/* Main Login Card */}
         <div className="bg-slate-800/90 backdrop-blur-md rounded-2xl border border-slate-700/80 p-6 sm:p-8 shadow-2xl">
+          {/* Inactivity Auto-Logout Alert Banner */}
+          {inactivityNotice && (
+            <div className="mb-5 p-3.5 rounded-xl bg-amber-500/15 border border-amber-500/40 flex items-start gap-3 text-amber-200 text-xs animate-in fade-in duration-200">
+              <Clock className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+              <div className="flex-1 leading-relaxed">{inactivityNotice}</div>
+              <button
+                type="button"
+                onClick={clearInactivityNotice}
+                className="text-amber-400/80 hover:text-amber-200 p-0.5 rounded hover:bg-amber-500/20 transition-colors cursor-pointer"
+                title="Dismiss notice"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
           {!selectedMember || !requirePin ? (
             <div>
               <div className="flex items-center justify-between mb-5">
@@ -230,8 +246,14 @@ export const LoginScreen: React.FC = () => {
         </div>
 
         {/* Footer info */}
-        <div className="text-center mt-6 text-xs text-slate-500">
-          <p>Controlled via Settings: Customize App Name, PIN codes & login requirements.</p>
+        <div className="text-center mt-6 text-xs text-slate-500 space-y-1.5">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700/60 text-[11px] text-slate-400">
+            <Clock className="w-3 h-3 text-emerald-400 shrink-0" />
+            <span>নিরাপত্তা নীতি: ১০ মিনিট কোনো ব্যবহার না হলে স্বয়ংক্রিয় লগআউট (10m Idle Timeout)</span>
+          </div>
+          <p className="text-[11px] text-slate-500">
+            Controlled via Settings: Customize App Name, PIN codes & login requirements.
+          </p>
         </div>
       </div>
     </div>

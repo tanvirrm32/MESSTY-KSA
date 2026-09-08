@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   syncDatabaseToFirebase,
   subscribeToFirebaseMess,
@@ -124,6 +124,12 @@ interface MessContextType {
   changeMemberPin: (memberId: 'tanvir-rana' | 'zilam-jahid', currentPin: string, newPin: string) => { success: boolean; error?: string };
   continueAsGuest: () => void;
 
+  // Inactivity Auto-Logout (10-Minute Idle Session Protection)
+  inactivityNotice: string | null;
+  clearInactivityNotice: () => void;
+  inactivityRemainingSeconds: number | null;
+  resetInactivityTimer: () => void;
+
   // Cloud / Firebase Live Sync
   firebaseSyncStatus: 'connected' | 'syncing' | 'error' | 'offline';
   lastSyncedAt: string | null;
@@ -185,12 +191,43 @@ export const MessProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [db.settings]);
 
-  // Authentication & Session
+  // Authentication & Session (10-Minute Inactivity Auto-Logout)
   const SESSION_USER_KEY = 'mess_current_logged_in_user';
+  const SESSION_LAST_ACTIVE_KEY = 'mess_session_last_activity_time';
+  const INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes (600,000ms)
+  const INACTIVITY_WARNING_MS = 9 * 60 * 1000; // 9 minutes (warning triggers at last 60 seconds)
+
+  const [inactivityNotice, setInactivityNotice] = useState<string | null>(() => {
+    try {
+      const savedUser = localStorage.getItem(SESSION_USER_KEY);
+      const lastActive = localStorage.getItem(SESSION_LAST_ACTIVE_KEY);
+      if (savedUser && lastActive) {
+        const elapsed = Date.now() - parseInt(lastActive, 10);
+        if (elapsed >= INACTIVITY_TIMEOUT_MS) {
+          return '১০ মিনিট কোনো ব্যবহার না করায় নিরাপত্তা স্বার্থে অটো লগআউট হয়েছে। অনুগ্রহ করে আবার লগইন করুন। (Logged out due to 10 minutes of inactivity.)';
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  });
+
+  const [inactivityRemainingSeconds, setInactivityRemainingSeconds] = useState<number | null>(null);
+
   const [currentUser, setCurrentUser] = useState<'tanvir-rana' | 'zilam-jahid' | 'guest' | null>(() => {
     try {
       const saved = localStorage.getItem(SESSION_USER_KEY);
+      const lastActive = localStorage.getItem(SESSION_LAST_ACTIVE_KEY);
       if (saved === 'tanvir-rana' || saved === 'zilam-jahid' || saved === 'guest') {
+        if (lastActive) {
+          const elapsed = Date.now() - parseInt(lastActive, 10);
+          if (elapsed >= INACTIVITY_TIMEOUT_MS) {
+            localStorage.removeItem(SESSION_USER_KEY);
+            localStorage.removeItem(SESSION_LAST_ACTIVE_KEY);
+            return null;
+          }
+        }
         return saved;
       }
     } catch {
@@ -198,6 +235,169 @@ export const MessProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     return null;
   });
+
+  const lastActivityRef = useRef<number>(Date.now());
+  const lastStorageSyncRef = useRef<number>(Date.now());
+
+  const resetInactivityTimer = useCallback(() => {
+    const now = Date.now();
+    lastActivityRef.current = now;
+    setInactivityRemainingSeconds(null);
+
+    // Throttle writing to localStorage to prevent excessive storage writes
+    if (now - lastStorageSyncRef.current > 3000) {
+      lastStorageSyncRef.current = now;
+      try {
+        localStorage.setItem(SESSION_LAST_ACTIVE_KEY, now.toString());
+      } catch {
+        // ignore
+      }
+    }
+  }, []);
+
+  const clearInactivityNotice = useCallback(() => {
+    setInactivityNotice(null);
+  }, []);
+
+  // Inactivity Auto-Logout Event Listeners and Timer
+  useEffect(() => {
+    if (!currentUser) {
+      setInactivityRemainingSeconds(null);
+      return;
+    }
+
+    const now = Date.now();
+    lastActivityRef.current = now;
+    lastStorageSyncRef.current = now;
+    try {
+      localStorage.setItem(SESSION_LAST_ACTIVE_KEY, now.toString());
+    } catch {
+      // ignore
+    }
+
+    const onUserInteraction = () => {
+      resetInactivityTimer();
+    };
+
+    // User interaction events across all devices (Desktop, Touch, Scroll)
+    const interactionEvents = [
+      'mousedown',
+      'mousemove',
+      'keydown',
+      'touchstart',
+      'touchmove',
+      'scroll',
+      'click',
+      'wheel',
+    ];
+
+    interactionEvents.forEach((evt) => {
+      window.addEventListener(evt, onUserInteraction, { passive: true });
+    });
+
+    // Cross-tab sync: if another tab is active or logs out
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === SESSION_LAST_ACTIVE_KEY && e.newValue) {
+        const time = parseInt(e.newValue, 10);
+        if (!isNaN(time) && time > lastActivityRef.current) {
+          lastActivityRef.current = time;
+          setInactivityRemainingSeconds(null);
+        }
+      } else if (e.key === SESSION_USER_KEY && !e.newValue) {
+        setCurrentUser(null);
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+
+    // Tab focus / visibility change handler (e.g. waking up laptop or unlocking phone)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        const currentNow = Date.now();
+        let effectiveLastActive = lastActivityRef.current;
+        try {
+          const stored = localStorage.getItem(SESSION_LAST_ACTIVE_KEY);
+          if (stored) {
+            const parsed = parseInt(stored, 10);
+            if (!isNaN(parsed) && parsed > effectiveLastActive) {
+              effectiveLastActive = parsed;
+              lastActivityRef.current = parsed;
+            }
+          }
+        } catch {
+          // ignore
+        }
+
+        const elapsed = currentNow - effectiveLastActive;
+        if (elapsed >= INACTIVITY_TIMEOUT_MS) {
+          setCurrentUser(null);
+          try {
+            localStorage.removeItem(SESSION_USER_KEY);
+            localStorage.removeItem(SESSION_LAST_ACTIVE_KEY);
+          } catch {
+            // ignore
+          }
+          setInactivityNotice(
+            '১০ মিনিট কোনো ব্যবহার না করায় নিরাপত্তা স্বার্থে অটো লগআউট হয়েছে। অনুগ্রহ করে আবার লগইন করুন। (Logged out due to 10 minutes of inactivity.)'
+          );
+          setInactivityRemainingSeconds(null);
+        } else {
+          resetInactivityTimer();
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+
+    // Interval ticker to evaluate inactivity every second
+    const tickerInterval = setInterval(() => {
+      const currentNow = Date.now();
+      let effectiveLastActive = lastActivityRef.current;
+
+      try {
+        const stored = localStorage.getItem(SESSION_LAST_ACTIVE_KEY);
+        if (stored) {
+          const parsed = parseInt(stored, 10);
+          if (!isNaN(parsed) && parsed > effectiveLastActive) {
+            effectiveLastActive = parsed;
+            lastActivityRef.current = parsed;
+          }
+        }
+      } catch {
+        // ignore
+      }
+
+      const elapsed = currentNow - effectiveLastActive;
+
+      if (elapsed >= INACTIVITY_TIMEOUT_MS) {
+        setCurrentUser(null);
+        try {
+          localStorage.removeItem(SESSION_USER_KEY);
+          localStorage.removeItem(SESSION_LAST_ACTIVE_KEY);
+        } catch {
+          // ignore
+        }
+        setInactivityNotice(
+          '১০ মিনিট কোনো ব্যবহার না করায় নিরাপত্তা স্বার্থে অটো লগআউট হয়েছে। অনুগ্রহ করে আবার লগইন করুন। (Logged out due to 10 minutes of inactivity.)'
+        );
+        setInactivityRemainingSeconds(null);
+      } else if (elapsed >= INACTIVITY_WARNING_MS) {
+        const remainingSecs = Math.max(1, Math.ceil((INACTIVITY_TIMEOUT_MS - elapsed) / 1000));
+        setInactivityRemainingSeconds(remainingSecs);
+      } else {
+        setInactivityRemainingSeconds((prev) => (prev !== null ? null : prev));
+      }
+    }, 1000);
+
+    return () => {
+      interactionEvents.forEach((evt) => {
+        window.removeEventListener(evt, onUserInteraction);
+      });
+      window.removeEventListener('storage', handleStorageChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+      clearInterval(tickerInterval);
+    };
+  }, [currentUser, resetInactivityTimer]);
 
   const activeMember = useMemo(() => {
     if (currentUser === 'tanvir-rana' || currentUser === 'zilam-jahid') {
@@ -1332,8 +1532,14 @@ export const MessProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     setCurrentUser(memberId);
+    setInactivityNotice(null);
+    setInactivityRemainingSeconds(null);
+    const now = Date.now();
+    lastActivityRef.current = now;
+    lastStorageSyncRef.current = now;
     try {
       localStorage.setItem(SESSION_USER_KEY, memberId);
+      localStorage.setItem(SESSION_LAST_ACTIVE_KEY, now.toString());
     } catch {
       // ignore
     }
@@ -1343,8 +1549,10 @@ export const MessProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logoutMember = () => {
     setCurrentUser(null);
+    setInactivityRemainingSeconds(null);
     try {
       localStorage.removeItem(SESSION_USER_KEY);
+      localStorage.removeItem(SESSION_LAST_ACTIVE_KEY);
     } catch {
       // ignore
     }
@@ -1366,8 +1574,14 @@ export const MessProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     setCurrentUser(memberId);
+    setInactivityNotice(null);
+    setInactivityRemainingSeconds(null);
+    const now = Date.now();
+    lastActivityRef.current = now;
+    lastStorageSyncRef.current = now;
     try {
       localStorage.setItem(SESSION_USER_KEY, memberId);
+      localStorage.setItem(SESSION_LAST_ACTIVE_KEY, now.toString());
     } catch {
       // ignore
     }
@@ -1384,8 +1598,14 @@ export const MessProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     setCurrentUser(memberId);
+    setInactivityNotice(null);
+    setInactivityRemainingSeconds(null);
+    const now = Date.now();
+    lastActivityRef.current = now;
+    lastStorageSyncRef.current = now;
     try {
       localStorage.setItem(SESSION_USER_KEY, memberId);
+      localStorage.setItem(SESSION_LAST_ACTIVE_KEY, now.toString());
     } catch {
       // ignore
     }
@@ -1394,8 +1614,14 @@ export const MessProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const continueAsGuest = () => {
     setCurrentUser('guest');
+    setInactivityNotice(null);
+    setInactivityRemainingSeconds(null);
+    const now = Date.now();
+    lastActivityRef.current = now;
+    lastStorageSyncRef.current = now;
     try {
       localStorage.setItem(SESSION_USER_KEY, 'guest');
+      localStorage.setItem(SESSION_LAST_ACTIVE_KEY, now.toString());
     } catch {
       // ignore
     }
@@ -1446,6 +1672,10 @@ export const MessProvider: React.FC<{ children: React.ReactNode }> = ({ children
         switchMember,
         switchMemberWithPin,
         continueAsGuest,
+        inactivityNotice,
+        clearInactivityNotice,
+        inactivityRemainingSeconds,
+        resetInactivityTimer,
         isExpenseModalOpen,
         setIsExpenseModalOpen,
         editingExpense,

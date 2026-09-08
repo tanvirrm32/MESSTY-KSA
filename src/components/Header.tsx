@@ -14,6 +14,7 @@ import {
   UserCheck,
   Cloud,
   RefreshCw,
+  Clock,
 } from 'lucide-react';
 import { useMess } from '../context/MessContext';
 
@@ -417,6 +418,12 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
 
               <div className="my-1.5 border-t border-slate-100" />
+
+              {/* 10-Minute Auto-Logout Notice */}
+              <div className="px-2.5 py-1.5 mb-1.5 bg-slate-50 border border-slate-200/80 rounded-lg text-[10px] text-slate-500 flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                <span className="truncate">১০ মিনিট নিষ্ক্রিয়তায় অটো লগআউট সক্রিয়</span>
+              </div>
 
               {/* Prominent Log Out Button in Menu */}
               <button
