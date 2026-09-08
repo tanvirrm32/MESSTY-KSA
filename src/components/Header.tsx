@@ -159,7 +159,10 @@ export const Header: React.FC<HeaderProps> = ({
                 <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                   Select Accounting Month
                 </div>
-                <div className="max-h-60 overflow-y-auto divide-y divide-slate-100">
+                <div
+                  className="max-h-60 overflow-y-auto overscroll-contain touch-pan-y divide-y divide-slate-100"
+                  style={{ WebkitOverflowScrolling: 'touch' }}
+                >
                   {sortedMonths.map((m) => (
                     <button
                       key={m.id}

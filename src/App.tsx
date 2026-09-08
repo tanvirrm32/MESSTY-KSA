@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { MessProvider, useMess } from './context/MessContext';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
@@ -19,6 +19,14 @@ import { MobileBottomNav } from './components/MobileBottomNav';
 const AppContent: React.FC = () => {
   const { activeTab, appSettings, currentUser } = useMess();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const mainScrollRef = useRef<HTMLElement>(null);
+
+  // Smoothly reset scroll position to top when changing views
+  useEffect(() => {
+    if (mainScrollRef.current) {
+      mainScrollRef.current.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+    }
+  }, [activeTab]);
 
   // If login protection is enabled and member has not logged in, show Login Screen
   if (appSettings.auth?.enabled && !currentUser) {
@@ -26,7 +34,7 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen bg-[#f8fafc] text-slate-800 overflow-hidden font-sans antialiased">
+    <div className="flex h-[100dvh] max-h-[100dvh] w-full bg-[#f8fafc] text-slate-800 overflow-hidden font-sans antialiased">
       {/* Sidebar Navigation */}
       <Sidebar
         mobileOpen={mobileSidebarOpen}
@@ -34,16 +42,20 @@ const AppContent: React.FC = () => {
       />
 
       {/* Main App Workspace */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 h-[100dvh] max-h-[100dvh] overflow-hidden">
         {/* Top Header Bar */}
         <Header
           onToggleMobileSidebar={() => setMobileSidebarOpen((prev) => !prev)}
           onOpenMobile={() => setMobileSidebarOpen(true)}
         />
 
-        {/* Scrollable View Area */}
-        <main className="flex-1 overflow-y-auto p-3 sm:p-6 lg:p-8">
-          <div className="max-w-7xl mx-auto pb-24 lg:pb-12">
+        {/* Scrollable View Area with Inertial Momentum Scrolling */}
+        <main
+          ref={mainScrollRef}
+          className="flex-1 overflow-y-auto overscroll-y-contain touch-pan-y mobile-scroll-container p-3 sm:p-6 lg:p-8"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
+          <div className="max-w-7xl mx-auto pb-28 sm:pb-24 lg:pb-12">
             {activeTab === 'dashboard' && <DashboardView />}
             {activeTab === 'transactions' && <TransactionsView />}
             {activeTab === 'contributions' && <ContributionsView />}

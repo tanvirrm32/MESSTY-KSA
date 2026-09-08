@@ -71,7 +71,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) =
       </div>
 
       {/* Navigation List */}
-      <nav className="flex-1 p-3.5 space-y-1 overflow-y-auto">
+      <nav
+        className="flex-1 p-3.5 space-y-1 overflow-y-auto overscroll-contain touch-pan-y"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;

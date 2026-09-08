@@ -1,1 +1,91 @@
 @import "tailwindcss";
+
+/* Global Mobile Scroll & Touch Optimization */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+}
+
+html,
+body {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+#root {
+  height: 100%;
+  width: 100%;
+}
+
+/* Momentum & Inertial Scrolling for iOS WebKit & Mobile Browsers */
+main,
+.mobile-scroll-container,
+.overflow-y-auto,
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Touch Action Rules to Prevent Scroll Lock / Gesture Hijacking */
+.touch-pan-y {
+  touch-action: pan-y;
+}
+
+.touch-pan-x {
+  touch-action: pan-x;
+}
+
+/* Horizontal tables and tab bars allow vertical scrolling seamlessly */
+.overflow-x-auto {
+  overscroll-behavior-x: contain;
+  touch-action: pan-x pan-y;
+}
+
+.overflow-y-auto {
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+}
+
+/* Safe Area Insets for Edge-to-Edge Mobile Displays (iPhone Notch / Android Nav) */
+.safe-area-bottom {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+}
+
+.safe-area-top {
+  padding-top: max(0.5rem, env(safe-area-inset-top, 0px));
+}
+
+/* Hide scrollbar for clean horizontal tabs */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Subtle clean scrollbars for desktop and table views */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.6);
+}
+
