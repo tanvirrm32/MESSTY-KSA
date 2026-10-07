@@ -10,6 +10,7 @@ import {
   Scale,
   Calendar,
   Wallet,
+  Lock,
 } from 'lucide-react';
 import { useMess } from '../context/MessContext';
 import { formatCurrency, formatDate, getExpenseFundStatus } from '../utils/calcEngine';
@@ -19,6 +20,7 @@ export const DashboardView: React.FC = () => {
     currentMonth,
     currentSettlement,
     db,
+    setCurrentMonthId,
     setActiveTab,
     setIsExpenseModalOpen,
     setIsContributionModalOpen,
@@ -49,8 +51,40 @@ export const DashboardView: React.FC = () => {
   // Net Cash Balance in Mess Fund
   const messFundCash = currentSettlement.totalContributions - currentSettlement.totalExpenses;
 
+  // Check if viewing a finalized month or if a newer active month is available
+  const isFinalized = currentMonth.status === 'finalized' || Boolean(currentSettlement.isClosed);
+  const newerActiveMonth = db.months.find(
+    (m) => m.id > currentMonth.id && m.status === 'active'
+  );
+
   return (
     <div className="space-y-6">
+      {/* Finalized Month Information Banner */}
+      {isFinalized && (
+        <div className="bg-amber-50 border border-amber-200/90 rounded-xl p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-900 shadow-2xs">
+          <div className="flex items-center gap-2">
+            <span className="p-1.5 rounded-lg bg-amber-100 text-amber-800 shrink-0">
+              <Lock className="w-4 h-4" />
+            </span>
+            <div>
+              <span className="font-bold">Viewing Finalized Month: {currentMonth.name}</span>
+              <p className="text-[11px] text-amber-700 mt-0.5">
+                All transactions and settlements for this month are locked and closed.
+              </p>
+            </div>
+          </div>
+          {newerActiveMonth && (
+            <button
+              type="button"
+              onClick={() => setCurrentMonthId(newerActiveMonth.id)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs transition-colors shrink-0 cursor-pointer shadow-2xs"
+            >
+              Switch to Active Month ({newerActiveMonth.name}) <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Summary Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Card 1: Total Common Expense */}
@@ -161,40 +195,68 @@ export const DashboardView: React.FC = () => {
               <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
                 Current Settlement
               </div>
-              <span className="text-[10px] font-semibold text-amber-400/90 bg-amber-950/60 border border-amber-800/60 px-1.5 py-0.5 rounded">
-                {currentSettlement.isBalanced ? 'Balanced' : 'Breakdown'}
+              <span
+                className={`text-[10px] font-semibold px-1.5 py-0.5 rounded flex items-center gap-1 ${
+                  isFinalized
+                    ? 'text-emerald-300 bg-emerald-950/80 border border-emerald-800/80 font-bold'
+                    : 'text-amber-400/90 bg-amber-950/60 border border-amber-800/60'
+                }`}
+              >
+                {isFinalized ? (
+                  <>
+                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" /> Settled / Closed
+                  </>
+                ) : currentSettlement.isBalanced ? (
+                  'Balanced'
+                ) : (
+                  'Breakdown'
+                )}
+              </span>
+            </div>
+
+            {/* Equal Share Summary Header */}
+            <div className="flex items-center justify-between text-[11px] bg-slate-800/70 rounded-lg px-2.5 py-1 mb-2 border border-slate-700/60">
+              <span className="text-slate-400">
+                Common Exp: <strong className="text-slate-200 font-mono">{formatCurrency(currentSettlement.totalCommonExpenses)}</strong>
+              </span>
+              <span className="text-slate-400">
+                Equal Share: <strong className="text-emerald-400 font-mono">{formatCurrency(currentSettlement.equalSharePerPerson)}</strong>
               </span>
             </div>
 
             {/* List System for Settlement Breakdown */}
             {currentSettlement.settlementItems && currentSettlement.settlementItems.length > 0 ? (
               <ul className="space-y-1.5 my-1">
-                {currentSettlement.settlementItems.map((item) => (
-                  <li
-                    key={item.memberId}
-                    className="flex items-center justify-between text-xs py-1.5 px-2.5 rounded-lg bg-slate-800/80 border border-slate-700/60"
-                  >
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className={`w-2 h-2 rounded-full shrink-0 ${item.dotColor}`} />
-                      <span className="font-semibold text-slate-100 shrink-0 text-xs">{item.name}</span>
-                      <span
-                        className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0 ${item.badgeClass}`}
-                      >
-                        {item.actionLabel}
-                      </span>
-                      {item.sourceNote && (
-                        <span className="text-[10px] text-slate-400 truncate hidden xl:inline">
-                          ({item.sourceNote})
+                {currentSettlement.settlementItems.map((item) => {
+                  const contrib =
+                    item.memberId === 'tanvir-rana'
+                      ? currentSettlement.tanvirContribution
+                      : currentSettlement.zilamContribution;
+                  return (
+                    <li
+                      key={item.memberId}
+                      className="flex items-center justify-between text-xs py-1.5 px-2.5 rounded-lg bg-slate-800/80 border border-slate-700/60"
+                    >
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${item.dotColor}`} />
+                        <span className="font-semibold text-slate-100 shrink-0 text-xs">{item.name}</span>
+                        <span className="text-[10px] text-slate-400 font-mono hidden sm:inline">
+                          (Paid: {formatCurrency(contrib)})
                         </span>
-                      )}
-                    </div>
-                    <div className="text-right shrink-0 ml-2">
-                      <span className={`font-mono font-bold text-sm ${item.amountColor}`}>
-                        {formatCurrency(item.amount)}
-                      </span>
-                    </div>
-                  </li>
-                ))}
+                        <span
+                          className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0 ${item.badgeClass}`}
+                        >
+                          {item.actionLabel}
+                        </span>
+                      </div>
+                      <div className="text-right shrink-0 ml-2">
+                        <span className={`font-mono font-bold text-sm ${item.amountColor}`}>
+                          {formatCurrency(item.amount)}
+                        </span>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             ) : (
               <div className="text-lg font-bold text-amber-400 leading-snug">
@@ -204,17 +266,33 @@ export const DashboardView: React.FC = () => {
               </div>
             )}
           </div>
-          <div className="mt-2 pt-2 border-t border-slate-800 flex items-center justify-between">
-            <span className="text-xs text-slate-400">
-              {currentSettlement.isBalanced
-                ? 'Net Difference'
-                : currentSettlement.remainingFund > 0
-                ? 'Remaining Cash Fund'
-                : 'Settlement Amount'}
-            </span>
-            <span className="text-base font-bold text-white font-mono">
-              {formatCurrency(currentSettlement.settlementAmount)}
-            </span>
+          <div className="mt-2 pt-2 border-t border-slate-800">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-slate-400">
+                {isFinalized
+                  ? 'Settlement Status'
+                  : currentSettlement.isBalanced
+                  ? 'Net Difference'
+                  : currentSettlement.remainingFund > 0
+                  ? 'Remaining Cash Fund'
+                  : 'Settlement Amount'}
+              </span>
+              <span className="text-base font-bold text-white font-mono">
+                {isFinalized ? 'SAR 0.00 (Closed)' : formatCurrency(currentSettlement.settlementAmount)}
+              </span>
+            </div>
+            {newerActiveMonth && (
+              <div className="mt-2 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px]">
+                <span className="text-slate-400 truncate">New active month:</span>
+                <button
+                  type="button"
+                  onClick={() => setCurrentMonthId(newerActiveMonth.id)}
+                  className="text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 cursor-pointer shrink-0 transition-colors"
+                >
+                  Go to {newerActiveMonth.name} <ArrowRight className="w-3 h-3" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

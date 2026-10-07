@@ -42,7 +42,7 @@ const AppContent: React.FC = () => {
       />
 
       {/* Main App Workspace */}
-      <div className="flex-1 flex flex-col min-w-0 h-[100dvh] max-h-[100dvh] overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0 h-[100dvh] max-h-[100dvh] overflow-hidden">
         {/* Top Header Bar */}
         <Header
           onToggleMobileSidebar={() => setMobileSidebarOpen((prev) => !prev)}
@@ -52,7 +52,7 @@ const AppContent: React.FC = () => {
         {/* Scrollable View Area with Inertial Momentum Scrolling */}
         <main
           ref={mainScrollRef}
-          className="flex-1 overflow-y-auto overscroll-y-contain touch-pan-y mobile-scroll-container p-3 sm:p-6 lg:p-8"
+          className="flex-1 min-h-0 overflow-y-auto overscroll-y-auto touch-pan-y mobile-scroll-container p-3 sm:p-6 lg:p-8"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
           <div className="max-w-7xl mx-auto pb-28 sm:pb-24 lg:pb-12">

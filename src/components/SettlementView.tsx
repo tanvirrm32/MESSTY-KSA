@@ -26,12 +26,15 @@ export const SettlementView: React.FC = () => {
     db,
     finalizeMonth,
     reopenMonth,
+    setCurrentMonthId,
+    createMonth,
   } = useMess();
 
   const [isFinalizeModalOpen, setIsFinalizeModalOpen] = useState(false);
   const [isReopenModalOpen, setIsReopenModalOpen] = useState(false);
 
-  const isFinalized = currentMonth.status === 'finalized';
+  const isFinalized = currentMonth.status === 'finalized' || Boolean(currentSettlement.isClosed);
+  const nextMonthAvailable = db.months.find((m) => m.id > currentMonth.id);
 
   const monthExpenses = db.expenses.filter((e) => e.monthId === currentMonth.id);
   const monthContributions = db.contributions.filter((c) => c.monthId === currentMonth.id);
@@ -133,47 +136,340 @@ export const SettlementView: React.FC = () => {
         </div>
       </div>
 
+      {/* Finalized Month Action Banner */}
+      {isFinalized && (
+        <div className="bg-emerald-50 border border-emerald-200/90 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-2xs">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0 mt-0.5">
+              <ShieldCheck className="w-5 h-5 text-emerald-700" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-bold text-emerald-950">
+                  Month Finalized & Settlement Closed
+                </h4>
+                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-200/80 text-emerald-900">
+                  Settled
+                </span>
+              </div>
+              <p className="text-xs text-emerald-800 mt-1">
+                Settlement for {currentMonth.name} is officially closed. All accounts were reconciled and all dues settled.
+                {nextMonthAvailable
+                  ? ` You can now proceed to ${nextMonthAvailable.name}.`
+                  : ' Ready to create the next month for new expenses and deposits.'}
+              </p>
+            </div>
+          </div>
+          {nextMonthAvailable ? (
+            <button
+              type="button"
+              onClick={() => setCurrentMonthId(nextMonthAvailable.id)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors cursor-pointer shrink-0 shadow-xs"
+            >
+              Go to {nextMonthAvailable.name} <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                const nextYear = currentMonth.monthNumber === 12 ? currentMonth.year + 1 : currentMonth.year;
+                const nextMonthNum = currentMonth.monthNumber === 12 ? 1 : currentMonth.monthNumber + 1;
+                createMonth(nextYear, nextMonthNum);
+              }}
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors cursor-pointer shrink-0 shadow-xs"
+            >
+              + Start Next Month <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Main Settlement Verdict Box */}
       <div
         className={`p-5 rounded-xl border shadow-sm ${
-          currentSettlement.isBalanced
+          isFinalized
+            ? 'bg-emerald-50/90 border-emerald-300'
+            : currentSettlement.isBalanced
             ? 'bg-emerald-50/90 border-emerald-200'
             : 'bg-amber-50/90 border-amber-200'
         }`}
       >
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
-              Settlement Calculation Verdict
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
+                Settlement Calculation Verdict
+              </span>
+              {isFinalized && (
+                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Settlement Closed
+                </span>
+              )}
+            </div>
             <h3 className="text-2xl sm:text-3xl font-black text-slate-900 mt-1 tracking-tight">
               {currentSettlement.settlementMessage}
             </h3>
             <p className="text-xs text-slate-600 mt-2 max-w-xl">
-              Calculated based on actual contributions vs expense share: <br />
-              <code className="font-mono text-[11px] bg-white/70 px-1.5 py-0.5 rounded text-slate-800 border border-slate-200/60">
-                Deposit − Expense Share = Member Refund from Remaining Fund
-              </code>
+              {isFinalized ? (
+                <>
+                  Settlement amount is officially closed and finalized. The new month begins fresh according to its own transactions.
+                </>
+              ) : (
+                <>
+                  Calculated based on actual contributions vs expense share: <br />
+                  <code className="font-mono text-[11px] bg-white/70 px-1.5 py-0.5 rounded text-slate-800 border border-slate-200/60">
+                    Deposit − Expense Share = Member Refund from Remaining Fund
+                  </code>
+                </>
+              )}
             </p>
           </div>
 
           <div className="shrink-0">
             <div className="bg-white p-4 rounded-xl border border-slate-200/80 text-center shadow-xs">
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                Remaining Fund
+                {isFinalized ? 'Settlement Amount' : 'Remaining Fund'}
               </span>
               <span className="text-2xl font-black font-mono text-slate-900 block mt-0.5">
-                {formatCurrency(currentSettlement.remainingFund)}
+                {isFinalized ? 'SAR 0.00' : formatCurrency(currentSettlement.remainingFund)}
               </span>
               <span className="text-[10px] text-slate-500 font-medium">
-                {currentSettlement.isBalanced ? 'No refund needed' : 'Available for member refund'}
+                {isFinalized
+                  ? 'Closed (Settled upon finalization)'
+                  : currentSettlement.isBalanced
+                  ? 'No refund needed'
+                  : 'Available for member refund'}
               </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Side-by-Side Settlement Comparison Sheet */}
+      {/* Equal Share Common Expense Settlement Card (Explicit 50/50 Division) */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse" />
+              <h3 className="text-base font-bold text-slate-900">
+                Equal Share Common Expense Settlement
+              </h3>
+              <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                50 / 50 Split
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Equal Share per Person = Total Common Expense ÷ 2. Balance = Contribution − Equal Share.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <span className="text-xs text-slate-500 font-medium">Status:</span>
+            <span
+              className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
+                isFinalized
+                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                  : currentSettlement.isBalanced
+                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                  : 'bg-amber-100 text-amber-900 border border-amber-300'
+              }`}
+            >
+              {isFinalized
+                ? 'Settlement Closed'
+                : currentSettlement.isBalanced
+                ? 'Fully Settled'
+                : 'Action Required'}
+            </span>
+          </div>
+        </div>
+
+        {/* Top 2 Metrics: Total Common Expense & Equal Share per Person */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200/80">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
+              Total Common Expense
+            </span>
+            <span className="text-2xl font-black font-mono text-slate-900 block mt-1">
+              {formatCurrency(currentSettlement.totalCommonExpenses)}
+            </span>
+            <span className="text-[11px] text-slate-500 mt-0.5 block">
+              Sum of all shared mess expenses in {currentMonth.name}
+            </span>
+          </div>
+
+          <div className="bg-blue-50/70 rounded-xl p-3.5 border border-blue-200/80">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-blue-800 block">
+              Equal Share per Person (÷ 2)
+            </span>
+            <span className="text-2xl font-black font-mono text-blue-950 block mt-1">
+              {formatCurrency(currentSettlement.equalSharePerPerson)}
+            </span>
+            <span className="text-[11px] text-blue-700 mt-0.5 block">
+              SAR {currentSettlement.totalCommonExpenses.toFixed(2)} ÷ 2 = {formatCurrency(currentSettlement.equalSharePerPerson)} / person
+            </span>
+          </div>
+        </div>
+
+        {/* Two-Column Breakdown: Tanvir & Zilam */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+          {/* Tanvir Contribution & Standing */}
+          <div className="bg-emerald-50/40 rounded-xl p-4 border border-emerald-200/80 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white font-bold text-xs flex items-center justify-center">
+                  TR
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900">Tanvir Rana</h4>
+                  <span className="text-[11px] text-slate-500">Contribution vs Equal Share</span>
+                </div>
+              </div>
+              <span
+                className={`text-xs font-black px-2.5 py-1 rounded-lg ${
+                  isFinalized
+                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                    : currentSettlement.tanvirStanding === 'Receivable'
+                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                    : currentSettlement.tanvirStanding === 'Payable'
+                    ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                    : 'bg-slate-100 text-slate-700 border border-slate-300'
+                }`}
+              >
+                {isFinalized
+                  ? 'Settled (Closed)'
+                  : currentSettlement.tanvirStanding === 'Receivable'
+                  ? 'Receivable'
+                  : currentSettlement.tanvirStanding === 'Payable'
+                  ? 'Payable'
+                  : 'Settled / No Balance'}
+              </span>
+            </div>
+
+            <div className="bg-white rounded-lg p-3 border border-emerald-100 divide-y divide-slate-100 text-xs">
+              <div className="flex justify-between py-1">
+                <span className="text-slate-600">Tanvir Contribution:</span>
+                <span className="font-mono font-bold text-slate-900">
+                  {formatCurrency(currentSettlement.tanvirContribution)}
+                </span>
+              </div>
+              <div className="flex justify-between py-1">
+                <span className="text-slate-600">Equal Share Target:</span>
+                <span className="font-mono text-slate-600">
+                  - {formatCurrency(currentSettlement.equalSharePerPerson)}
+                </span>
+              </div>
+              <div className="flex justify-between py-1.5 font-bold">
+                <span className="text-slate-800">Tanvir Balance:</span>
+                <span
+                  className={`font-mono text-sm ${
+                    currentSettlement.tanvirBalance > 0.005
+                      ? 'text-emerald-700'
+                      : currentSettlement.tanvirBalance < -0.005
+                      ? 'text-rose-700'
+                      : 'text-slate-700'
+                  }`}
+                >
+                  {isFinalized ? (
+                    <span className="text-emerald-700">SAR 0.00 (Settled)</span>
+                  ) : currentSettlement.tanvirStanding === 'Receivable' ? (
+                    `+${formatCurrency(currentSettlement.tanvirAmount)} (Receivable)`
+                  ) : currentSettlement.tanvirStanding === 'Payable' ? (
+                    `-${formatCurrency(currentSettlement.tanvirAmount)} (Payable)`
+                  ) : (
+                    'SAR 0.00 (Settled)'
+                  )}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Zilam Contribution & Standing */}
+          <div className="bg-blue-50/40 rounded-xl p-4 border border-blue-200/80 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-blue-600 text-white font-bold text-xs flex items-center justify-center">
+                  ZJ
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900">Zilam Jahid</h4>
+                  <span className="text-[11px] text-slate-500">Contribution vs Equal Share</span>
+                </div>
+              </div>
+              <span
+                className={`text-xs font-black px-2.5 py-1 rounded-lg ${
+                  isFinalized
+                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                    : currentSettlement.zilamStanding === 'Receivable'
+                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                    : currentSettlement.zilamStanding === 'Payable'
+                    ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                    : 'bg-slate-100 text-slate-700 border border-slate-300'
+                }`}
+              >
+                {isFinalized
+                  ? 'Settled (Closed)'
+                  : currentSettlement.zilamStanding === 'Receivable'
+                  ? 'Receivable'
+                  : currentSettlement.zilamStanding === 'Payable'
+                  ? 'Payable'
+                  : 'Settled / No Balance'}
+              </span>
+            </div>
+
+            <div className="bg-white rounded-lg p-3 border border-blue-100 divide-y divide-slate-100 text-xs">
+              <div className="flex justify-between py-1">
+                <span className="text-slate-600">Zilam Contribution:</span>
+                <span className="font-mono font-bold text-slate-900">
+                  {formatCurrency(currentSettlement.zilamContribution)}
+                </span>
+              </div>
+              <div className="flex justify-between py-1">
+                <span className="text-slate-600">Equal Share Target:</span>
+                <span className="font-mono text-slate-600">
+                  - {formatCurrency(currentSettlement.equalSharePerPerson)}
+                </span>
+              </div>
+              <div className="flex justify-between py-1.5 font-bold">
+                <span className="text-slate-800">Zilam Balance:</span>
+                <span
+                  className={`font-mono text-sm ${
+                    currentSettlement.zilamBalance > 0.005
+                      ? 'text-emerald-700'
+                      : currentSettlement.zilamBalance < -0.005
+                      ? 'text-rose-700'
+                      : 'text-slate-700'
+                  }`}
+                >
+                  {isFinalized ? (
+                    <span className="text-emerald-700">SAR 0.00 (Settled)</span>
+                  ) : currentSettlement.zilamStanding === 'Receivable' ? (
+                    `+${formatCurrency(currentSettlement.zilamAmount)} (Receivable)`
+                  ) : currentSettlement.zilamStanding === 'Payable' ? (
+                    `-${formatCurrency(currentSettlement.zilamAmount)} (Payable)`
+                  ) : (
+                    'SAR 0.00 (Settled)'
+                  )}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Balanced Mutual Settlement Verdict Footer */}
+        <div className="bg-slate-50 border border-slate-200/90 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2">
+            <Scale className="w-4 h-4 text-blue-600 shrink-0" />
+            <span className="text-slate-700">
+              <strong className="text-slate-900">Mutual Balanced Settlement:</strong>{' '}
+              {isFinalized
+                ? 'Settlement Closed (Month Finalized). All dues settled and accounts closed.'
+                : currentSettlement.settlementMessage}
+            </span>
+          </div>
+          <span className="font-mono font-black text-slate-900 shrink-0 sm:self-auto self-end">
+            {isFinalized ? 'SAR 0.00 (Closed)' : formatCurrency(currentSettlement.settlementAmount)}
+          </span>
+        </div>
+      </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Tanvir Rana Column */}
         <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs space-y-4">
@@ -537,21 +833,25 @@ export const SettlementView: React.FC = () => {
               <tr className="bg-amber-50/60 font-bold border-t border-amber-200">
                 <td className="py-3 px-4 text-amber-950">9. Settlement Action (Refund / Due)</td>
                 <td className="py-3 px-4 text-right font-mono text-xs">
-                  {currentSettlement.tanvirStats.currentAccountBalance > 0.005
+                  {isFinalized
+                    ? 'Settled (Closed)'
+                    : currentSettlement.tanvirStats.currentAccountBalance > 0.005
                     ? `Receive ${formatCurrency(currentSettlement.tanvirStats.currentAccountBalance)}`
                     : currentSettlement.tanvirStats.currentAccountBalance < -0.005
                     ? `Pay ${formatCurrency(Math.abs(currentSettlement.tanvirStats.currentAccountBalance))}`
                     : 'Balanced'}
                 </td>
                 <td className="py-3 px-4 text-right font-mono text-xs">
-                  {currentSettlement.zilamStats.currentAccountBalance > 0.005
+                  {isFinalized
+                    ? 'Settled (Closed)'
+                    : currentSettlement.zilamStats.currentAccountBalance > 0.005
                     ? `Receive ${formatCurrency(currentSettlement.zilamStats.currentAccountBalance)}`
                     : currentSettlement.zilamStats.currentAccountBalance < -0.005
                     ? `Pay ${formatCurrency(Math.abs(currentSettlement.zilamStats.currentAccountBalance))}`
                     : 'Balanced'}
                 </td>
                 <td className="py-3 px-4 text-right font-mono text-amber-950 font-black">
-                  {currentSettlement.remainingFund !== 0 ? formatCurrency(currentSettlement.remainingFund) : 'Balanced'}
+                  {isFinalized ? 'Settled / Closed' : currentSettlement.remainingFund !== 0 ? formatCurrency(currentSettlement.remainingFund) : 'Balanced'}
                 </td>
               </tr>
             </tbody>
@@ -563,8 +863,8 @@ export const SettlementView: React.FC = () => {
       <ConfirmModal
         isOpen={isFinalizeModalOpen}
         title={`Finalize Month: ${currentMonth.name}?`}
-        message="Finalizing this month will lock all transactions from accidental modification and preserve the official month-end settlement result. You can reopen the month later if adjustments are required."
-        confirmLabel="Finalize & Lock Month"
+        message="Finalizing this month will lock all transactions from modification, close the settlement amount, and reconcile all member balances. The next month will start fresh according to its own transactions with previous settlement closed."
+        confirmLabel="Finalize & Close Settlement"
         onConfirm={() => {
           finalizeMonth(currentMonth.id);
           setIsFinalizeModalOpen(false);

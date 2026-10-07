@@ -256,10 +256,18 @@ export function exportSettlementPDF(
       ['Total Expense Responsibility', formatCurrency(settlement.tanvirStats.totalExpenseResponsibility), formatCurrency(settlement.zilamStats.totalExpenseResponsibility), formatCurrency(settlement.totalExpenses)],
       ['Net Expense Position (Paid - Share)', formatCurrency(settlement.tanvirStats.netExpensePosition), formatCurrency(settlement.zilamStats.netExpensePosition), 'SAR 0.00'],
       ['Current Account Balance', formatCurrency(settlement.tanvirStats.currentAccountBalance), formatCurrency(settlement.zilamStats.currentAccountBalance), formatCurrency(settlement.tanvirStats.currentAccountBalance + settlement.zilamStats.currentAccountBalance)],
-      ['Settlement Action',
-        settlement.tanvirStats.currentAccountBalance > 0.005 ? 'Receive ' + formatCurrency(settlement.tanvirStats.currentAccountBalance) : settlement.tanvirStats.currentAccountBalance < -0.005 ? 'Pay ' + formatCurrency(Math.abs(settlement.tanvirStats.currentAccountBalance)) : 'Settled',
-        settlement.zilamStats.currentAccountBalance > 0.005 ? 'Receive ' + formatCurrency(settlement.zilamStats.currentAccountBalance) : settlement.zilamStats.currentAccountBalance < -0.005 ? 'Pay ' + formatCurrency(Math.abs(settlement.zilamStats.currentAccountBalance)) : 'Settled',
-        formatCurrency(settlement.remainingFund)
+      ['Total Common Expense', formatCurrency(settlement.totalCommonExpenses / 2), formatCurrency(settlement.totalCommonExpenses / 2), formatCurrency(settlement.totalCommonExpenses)],
+      ['Equal Share per Person (÷ 2)', formatCurrency(settlement.equalSharePerPerson), formatCurrency(settlement.equalSharePerPerson), formatCurrency(settlement.totalCommonExpenses)],
+      ['Actual Member Contribution', formatCurrency(settlement.tanvirContribution), formatCurrency(settlement.zilamContribution), formatCurrency(settlement.totalContributions)],
+      ['Equal Share Balance Status',
+        settlement.tanvirStanding === 'Receivable' ? 'Receivable ' + formatCurrency(settlement.tanvirAmount) : settlement.tanvirStanding === 'Payable' ? 'Payable ' + formatCurrency(settlement.tanvirAmount) : 'Settled',
+        settlement.zilamStanding === 'Receivable' ? 'Receivable ' + formatCurrency(settlement.zilamAmount) : settlement.zilamStanding === 'Payable' ? 'Payable ' + formatCurrency(settlement.zilamAmount) : 'Settled',
+        settlement.isClosed ? 'Closed (Finalized)' : settlement.isBalanced ? 'Balanced' : 'Active'
+      ],
+      ['Final Settlement Action',
+        settlement.tanvirStanding === 'Receivable' ? 'Receive ' + formatCurrency(settlement.tanvirAmount) : settlement.tanvirStanding === 'Payable' ? 'Pay ' + formatCurrency(settlement.tanvirAmount) : 'Settled',
+        settlement.zilamStanding === 'Receivable' ? 'Receive ' + formatCurrency(settlement.zilamAmount) : settlement.zilamStanding === 'Payable' ? 'Pay ' + formatCurrency(settlement.zilamAmount) : 'Settled',
+        settlement.isClosed ? 'SAR 0.00 (Closed)' : formatCurrency(settlement.settlementAmount)
       ],
     ],
     theme: 'grid',

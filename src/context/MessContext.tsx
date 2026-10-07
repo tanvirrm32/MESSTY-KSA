@@ -575,15 +575,18 @@ export const MessProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const allSettlements = useMemo(() => {
     const map = new Map<string, MonthlySettlementSummary>();
     for (const m of db.months) {
-      map.set(m.id, calculateMonthlySettlement(m, db.expenses, db.contributions));
+      map.set(m.id, calculateMonthlySettlement(m, db.expenses, db.contributions, db.months));
     }
     return map;
   }, [db.months, db.expenses, db.contributions]);
 
   // Current month's settlement summary
   const currentSettlement = useMemo(() => {
-    return allSettlements.get(currentMonth.id) || calculateMonthlySettlement(currentMonth, db.expenses, db.contributions);
-  }, [allSettlements, currentMonth, db.expenses, db.contributions]);
+    return (
+      allSettlements.get(currentMonth.id) ||
+      calculateMonthlySettlement(currentMonth, db.expenses, db.contributions, db.months)
+    );
+  }, [allSettlements, currentMonth, db.expenses, db.contributions, db.months]);
 
   // Add Expense (with automatic bazaar contribution support)
   const addExpense = (expenseData: {
@@ -1050,14 +1053,16 @@ export const MessProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return monthId;
     }
 
-    // Calculate opening balances from the latest previous month's closing balances
+    // Calculate opening balances:
+    // If the latest month is finalized, its settlement was closed upon finalization.
+    // In accordance with monthly mess accounting, new months start clean with 0 opening settlement debt.
     const sortedMonths = [...db.months].sort((a, b) => a.id.localeCompare(b.id));
     const latestMonth = sortedMonths[sortedMonths.length - 1];
     let openingTanvir = 0;
     let openingZilam = 0;
 
-    if (latestMonth) {
-      const prevSettlement = calculateMonthlySettlement(latestMonth, db.expenses, db.contributions);
+    if (latestMonth && latestMonth.status !== 'finalized') {
+      const prevSettlement = calculateMonthlySettlement(latestMonth, db.expenses, db.contributions, db.months);
       openingTanvir = prevSettlement.tanvirStats.currentAccountBalance;
       openingZilam = prevSettlement.zilamStats.currentAccountBalance;
     }

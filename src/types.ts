@@ -126,7 +126,7 @@ export interface SettlementListItem {
   name: string;
   fullName: string;
   action: 'receives' | 'owes' | 'settled';
-  actionLabel: 'Receives' | 'Owes' | 'Settled';
+  actionLabel: 'Receives' | 'Owes' | 'Settled' | 'Receivable' | 'Payable';
   amount: number;
   sourceNote?: string;
   dotColor: string;
@@ -158,6 +158,18 @@ export interface MonthlySettlementSummary {
   settlementMessage: string;
   settlementItems: SettlementListItem[];
   isBalanced: boolean;
+  isClosed?: boolean;
+  finalizedSettlementAmount?: number;
+  // Equal Share Settlement specifics
+  equalSharePerPerson: number;
+  tanvirContribution: number;
+  tanvirBalance: number;
+  tanvirStanding: 'Receivable' | 'Payable' | 'Settled';
+  tanvirAmount: number;
+  zilamContribution: number;
+  zilamBalance: number;
+  zilamStanding: 'Receivable' | 'Payable' | 'Settled';
+  zilamAmount: number;
 }
 
 export interface MessMonth {

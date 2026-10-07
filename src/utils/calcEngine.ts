@@ -104,7 +104,8 @@ export function calculateExpenseShares(
 export function calculateMonthlySettlement(
   month: MessMonth,
   expenses: Expense[],
-  contributions: Contribution[]
+  contributions: Contribution[],
+  allMonths?: MessMonth[]
 ): MonthlySettlementSummary {
   // Filter for this specific month
   const monthExpenses = expenses.filter((e) => e.monthId === month.id);
@@ -202,39 +203,47 @@ export function calculateMonthlySettlement(
   const directContributions = roundCurrency(tanvirDirectContributions + zilamDirectContributions);
   const autoContributions = roundCurrency(tanvirAutoContributions + zilamAutoContributions);
 
-  // Responsibilities
+  // Equal Share per Person = Total Common Expense ÷ 2
+  const equalSharePerPerson = roundCurrency(totalCommonExpenses / 2);
+  tanvirCommonShare = equalSharePerPerson;
+  zilamCommonShare = roundCurrency(totalCommonExpenses - tanvirCommonShare);
+
   const tanvirTotalResponsibility = roundCurrency(tanvirCommonShare + tanvirPersonalResponsibility);
   const zilamTotalResponsibility = roundCurrency(zilamCommonShare + zilamPersonalResponsibility);
 
-  const openingTanvir = month.openingBalance?.['tanvir-rana'] ?? 0;
-  const openingZilam = month.openingBalance?.['zilam-jahid'] ?? 0;
+  // Check if a previous month exists and if it is finalized
+  const sortedAllMonths = allMonths && allMonths.length > 0
+    ? [...allMonths].sort((a, b) => a.id.localeCompare(b.id))
+    : [];
+  const prevMonth = sortedAllMonths.filter((m) => m.id < month.id).pop();
+  const isPrevMonthFinalized = Boolean(prevMonth && prevMonth.status === 'finalized');
 
-  // Total funds provided by each member (Opening Balance + Total Contributions + Direct Out-of-pocket Paid)
-  const tanvirTotalFunds = roundCurrency(openingTanvir + tanvirContributions + tanvirPaid);
-  const zilamTotalFunds = roundCurrency(openingZilam + zilamContributions + zilamPaid);
+  // If the previous month was finalized, its settlement amount was closed upon finalization.
+  // Therefore, no unsettled settlement debt or credit is carried over into the new month.
+  // The new month calculates fresh according to the new month's own transactions.
+  const openingTanvir = isPrevMonthFinalized ? 0 : (month.openingBalance?.['tanvir-rana'] ?? 0);
+  const openingZilam = isPrevMonthFinalized ? 0 : (month.openingBalance?.['zilam-jahid'] ?? 0);
 
-  // Expense coverage:
-  // Expenses paid/covered by member's contribution & payments
-  const tanvirExpensesCovered = Math.min(tanvirTotalResponsibility, Math.max(0, tanvirTotalFunds));
-  const zilamExpensesCovered = Math.min(zilamTotalResponsibility, Math.max(0, zilamTotalFunds));
+  // Total funds provided by each member:
+  // Automatically based ONLY on entered Common Expenses and actual Contributions
+  const tanvirTotalFunds = roundCurrency(openingTanvir + tanvirContributions);
+  const zilamTotalFunds = roundCurrency(openingZilam + zilamContributions);
 
-  // The cost that crosses/exceeds the member's contribution amount (Unpaid/Due)
-  const tanvirUnpaidExpenseAmount = Math.max(0, roundCurrency(tanvirTotalResponsibility - tanvirTotalFunds));
-  const zilamUnpaidExpenseAmount = Math.max(0, roundCurrency(zilamTotalResponsibility - zilamTotalFunds));
-
-  // Expenses paid through Total Fund pool on member's behalf
-  const tanvirExpensesPaidFromFund = Math.max(0, roundCurrency(tanvirExpensesCovered - tanvirPaid));
-  const zilamExpensesPaidFromFund = Math.max(0, roundCurrency(zilamExpensesCovered - zilamPaid));
-
-  // Current closing account balance = Total Funds Provided - Total Expense Responsibility
+  // Equal share comparison:
+  // Tanvir Balance = Tanvir Contribution − (Total Common Expense ÷ 2)
+  // Zilam Balance = Zilam Contribution − (Total Common Expense ÷ 2)
   const tanvirAccountBalance = roundCurrency(tanvirTotalFunds - tanvirTotalResponsibility);
   const zilamAccountBalance = roundCurrency(zilamTotalFunds - zilamTotalResponsibility);
-
-  // Net expense position reflecting true financial standing (Contribution + Paid - Responsibility)
-  // Positive: Member has surplus/overpaid/in credit (Paid in Full)
-  // Negative: Member's expense crossed contribution (Unpaid/Due)
   const tanvirNetExpensePosition = tanvirAccountBalance;
   const zilamNetExpensePosition = zilamAccountBalance;
+
+  // Expense coverage:
+  const tanvirExpensesCovered = Math.min(tanvirTotalResponsibility, Math.max(0, tanvirTotalFunds));
+  const zilamExpensesCovered = Math.min(zilamTotalResponsibility, Math.max(0, zilamTotalFunds));
+  const tanvirUnpaidExpenseAmount = Math.max(0, roundCurrency(tanvirTotalResponsibility - tanvirTotalFunds));
+  const zilamUnpaidExpenseAmount = Math.max(0, roundCurrency(zilamTotalResponsibility - zilamTotalFunds));
+  const tanvirExpensesPaidFromFund = tanvirExpensesCovered;
+  const zilamExpensesPaidFromFund = zilamExpensesCovered;
 
   const tanvirStats: MemberMonthlyStats = {
     memberId: 'tanvir-rana',
@@ -284,30 +293,118 @@ export function calculateMonthlySettlement(
     paymentStatus: zilamUnpaidExpenseAmount === 0 ? 'Paid' : zilamExpensesCovered > 0 ? 'Partial' : 'Unpaid',
   };
 
-  const commonExpensePerMember = roundCurrency(totalCommonExpenses / 2);
+  const commonExpensePerMember = equalSharePerPerson;
 
   const fundExpensesPaid = totalExpenses;
   const totalDeposit = totalContributions;
   const remainingFund = roundCurrency(totalDeposit - totalExpenses);
 
-  // Rule 1: Refund from remaining mess fund based on actual closing account balance
-  // Member Balance = Opening Balance + Total Contributions - Expense Responsibility
-  const tanvirBal = tanvirStats.currentAccountBalance;
-  const zilamBal = zilamStats.currentAccountBalance;
+  // Settlement Calculation based strictly on equal share comparison:
+  // Equal Share per Person = Total Common Expense ÷ 2
+  // Tanvir Balance = Tanvir Contribution − (Total Common Expense ÷ 2)
+  // Zilam Balance = Zilam Contribution − (Total Common Expense ÷ 2)
+  const tanvirContribution = tanvirContributions;
+  const zilamContribution = zilamContributions;
+  const tanvirBal = roundCurrency(tanvirContribution - equalSharePerPerson);
+  const zilamBal = roundCurrency(zilamContribution - equalSharePerPerson);
 
   let settlementPayer: 'tanvir-rana' | 'zilam-jahid' | null = null;
   let settlementReceiver: 'tanvir-rana' | 'zilam-jahid' | null = null;
-  let settlementAmount = roundCurrency(Math.abs(remainingFund));
+  let settlementAmount = 0;
   let settlementMessage = 'Settlement Complete — Accounts are fully balanced.';
   let isBalanced = Math.abs(tanvirBal) < 0.005 && Math.abs(zilamBal) < 0.005;
+
+  const isFinalized = month.status === 'finalized';
+  let isClosed = isFinalized;
+  let finalizedSettlementAmount = 0;
 
   let tanvirItem: SettlementListItem;
   let zilamItem: SettlementListItem;
 
-  if (tanvirBal > 0.005 && zilamBal > 0.005) {
-    // Both members have positive closing balance: both receive their refund directly from the remaining mess fund
-    settlementMessage = `Tanvir receives ${formatCurrency(tanvirBal)} and Zilam receives ${formatCurrency(zilamBal)} from remaining fund.`;
-    settlementAmount = remainingFund;
+  if (isFinalized) {
+    // When a month is finalized, the settlement amount is closed.
+    isClosed = true;
+    isBalanced = true;
+    settlementAmount = 0;
+    finalizedSettlementAmount = roundCurrency(Math.abs(tanvirBal));
+    settlementMessage = `Settlement Closed — Month Finalized${
+      month.finalizedAt ? ` on ${formatDate(month.finalizedAt)}` : ''
+    } (All accounts reconciled & settled).`;
+    settlementPayer = null;
+    settlementReceiver = null;
+
+    tanvirItem = {
+      memberId: 'tanvir-rana',
+      name: 'Tanvir',
+      fullName: 'Tanvir Rana',
+      action: 'settled',
+      actionLabel: 'Settled',
+      amount: 0,
+      sourceNote: 'Closed (Finalized)',
+      dotColor: 'bg-emerald-400',
+      badgeClass: 'bg-emerald-950 text-emerald-300 border border-emerald-800/80',
+      amountColor: 'text-emerald-400',
+    };
+
+    zilamItem = {
+      memberId: 'zilam-jahid',
+      name: 'Zilam',
+      fullName: 'Zilam Jahid',
+      action: 'settled',
+      actionLabel: 'Settled',
+      amount: 0,
+      sourceNote: 'Closed (Finalized)',
+      dotColor: 'bg-blue-400',
+      badgeClass: 'bg-emerald-950 text-emerald-300 border border-emerald-800/80',
+      amountColor: 'text-emerald-400',
+    };
+  } else if (tanvirBal < -0.004 && zilamBal > 0.004) {
+    // Tanvir Contribution < Equal Share -> Payable
+    // Zilam Contribution > Equal Share -> Receivable
+    settlementPayer = 'tanvir-rana';
+    settlementReceiver = 'zilam-jahid';
+    settlementAmount = roundCurrency(Math.min(Math.abs(tanvirBal), zilamBal));
+    if (Math.abs(Math.abs(tanvirBal) - zilamBal) < 0.02) {
+      settlementAmount = roundCurrency(Math.abs(tanvirBal));
+    }
+    settlementMessage = `Tanvir owes ${formatCurrency(settlementAmount)} to Zilam.`;
+    isBalanced = false;
+
+    tanvirItem = {
+      memberId: 'tanvir-rana',
+      name: 'Tanvir',
+      fullName: 'Tanvir Rana',
+      action: 'owes',
+      actionLabel: 'Payable',
+      amount: Math.abs(tanvirBal),
+      sourceNote: 'to Zilam',
+      dotColor: 'bg-emerald-400',
+      badgeClass: 'bg-rose-950 text-rose-300 border border-rose-800/80',
+      amountColor: 'text-rose-400',
+    };
+
+    zilamItem = {
+      memberId: 'zilam-jahid',
+      name: 'Zilam',
+      fullName: 'Zilam Jahid',
+      action: 'receives',
+      actionLabel: 'Receivable',
+      amount: zilamBal,
+      sourceNote: 'from Tanvir',
+      dotColor: 'bg-blue-400',
+      badgeClass: 'bg-emerald-950 text-emerald-300 border border-emerald-800/80',
+      amountColor: 'text-amber-400',
+    };
+  } else if (zilamBal < -0.004 && tanvirBal > 0.004) {
+    // Zilam Contribution < Equal Share -> Payable
+    // Tanvir Contribution > Equal Share -> Receivable
+    settlementPayer = 'zilam-jahid';
+    settlementReceiver = 'tanvir-rana';
+    settlementAmount = roundCurrency(Math.min(Math.abs(zilamBal), tanvirBal));
+    if (Math.abs(Math.abs(zilamBal) - tanvirBal) < 0.02) {
+      settlementAmount = roundCurrency(Math.abs(zilamBal));
+    }
+    settlementMessage = `Zilam owes ${formatCurrency(settlementAmount)} to Tanvir.`;
     isBalanced = false;
 
     tanvirItem = {
@@ -315,7 +412,38 @@ export function calculateMonthlySettlement(
       name: 'Tanvir',
       fullName: 'Tanvir Rana',
       action: 'receives',
-      actionLabel: 'Receives',
+      actionLabel: 'Receivable',
+      amount: tanvirBal,
+      sourceNote: 'from Zilam',
+      dotColor: 'bg-emerald-400',
+      badgeClass: 'bg-emerald-950 text-emerald-300 border border-emerald-800/80',
+      amountColor: 'text-amber-400',
+    };
+
+    zilamItem = {
+      memberId: 'zilam-jahid',
+      name: 'Zilam',
+      fullName: 'Zilam Jahid',
+      action: 'owes',
+      actionLabel: 'Payable',
+      amount: Math.abs(zilamBal),
+      sourceNote: 'to Tanvir',
+      dotColor: 'bg-blue-400',
+      badgeClass: 'bg-rose-950 text-rose-300 border border-rose-800/80',
+      amountColor: 'text-rose-400',
+    };
+  } else if (tanvirBal > 0.004 && zilamBal > 0.004) {
+    // Both members have positive balance: both receive refund from remaining mess fund
+    settlementMessage = `Tanvir receives ${formatCurrency(tanvirBal)} and Zilam receives ${formatCurrency(zilamBal)} from remaining fund.`;
+    settlementAmount = roundCurrency(tanvirBal + zilamBal);
+    isBalanced = false;
+
+    tanvirItem = {
+      memberId: 'tanvir-rana',
+      name: 'Tanvir',
+      fullName: 'Tanvir Rana',
+      action: 'receives',
+      actionLabel: 'Receivable',
       amount: tanvirBal,
       sourceNote: 'from remaining fund',
       dotColor: 'bg-emerald-400',
@@ -328,82 +456,16 @@ export function calculateMonthlySettlement(
       name: 'Zilam',
       fullName: 'Zilam Jahid',
       action: 'receives',
-      actionLabel: 'Receives',
+      actionLabel: 'Receivable',
       amount: zilamBal,
       sourceNote: 'from remaining fund',
       dotColor: 'bg-blue-400',
       badgeClass: 'bg-emerald-950 text-emerald-300 border border-emerald-800/80',
       amountColor: 'text-amber-400',
     };
-  } else if (tanvirBal < -0.005 && zilamBal > 0.005) {
-    // Tanvir underpaid, Zilam overpaid
-    settlementPayer = 'tanvir-rana';
-    settlementReceiver = 'zilam-jahid';
-    settlementAmount = roundCurrency(Math.abs(tanvirBal));
-    settlementMessage = `Tanvir Rana owes ${formatCurrency(settlementAmount)} to fund / Zilam Jahid.`;
-    isBalanced = false;
-
-    tanvirItem = {
-      memberId: 'tanvir-rana',
-      name: 'Tanvir',
-      fullName: 'Tanvir Rana',
-      action: 'owes',
-      actionLabel: 'Owes',
-      amount: Math.abs(tanvirBal),
-      sourceNote: 'to fund / Zilam',
-      dotColor: 'bg-emerald-400',
-      badgeClass: 'bg-rose-950 text-rose-300 border border-rose-800/80',
-      amountColor: 'text-rose-400',
-    };
-
-    zilamItem = {
-      memberId: 'zilam-jahid',
-      name: 'Zilam',
-      fullName: 'Zilam Jahid',
-      action: 'receives',
-      actionLabel: 'Receives',
-      amount: Math.abs(zilamBal),
-      sourceNote: 'from settlement',
-      dotColor: 'bg-blue-400',
-      badgeClass: 'bg-emerald-950 text-emerald-300 border border-emerald-800/80',
-      amountColor: 'text-amber-400',
-    };
-  } else if (zilamBal < -0.005 && tanvirBal > 0.005) {
-    // Zilam underpaid, Tanvir overpaid
-    settlementPayer = 'zilam-jahid';
-    settlementReceiver = 'tanvir-rana';
-    settlementAmount = roundCurrency(Math.abs(zilamBal));
-    settlementMessage = `Zilam Jahid owes ${formatCurrency(settlementAmount)} to fund / Tanvir Rana.`;
-    isBalanced = false;
-
-    tanvirItem = {
-      memberId: 'tanvir-rana',
-      name: 'Tanvir',
-      fullName: 'Tanvir Rana',
-      action: 'receives',
-      actionLabel: 'Receives',
-      amount: Math.abs(tanvirBal),
-      sourceNote: 'from settlement',
-      dotColor: 'bg-emerald-400',
-      badgeClass: 'bg-emerald-950 text-emerald-300 border border-emerald-800/80',
-      amountColor: 'text-amber-400',
-    };
-
-    zilamItem = {
-      memberId: 'zilam-jahid',
-      name: 'Zilam',
-      fullName: 'Zilam Jahid',
-      action: 'owes',
-      actionLabel: 'Owes',
-      amount: Math.abs(zilamBal),
-      sourceNote: 'to fund / Tanvir',
-      dotColor: 'bg-blue-400',
-      badgeClass: 'bg-rose-950 text-rose-300 border border-rose-800/80',
-      amountColor: 'text-rose-400',
-    };
-  } else if (tanvirBal < -0.005 && zilamBal < -0.005) {
-    // Both in deficit to the mess fund
-    settlementAmount = roundCurrency(Math.abs(remainingFund));
+  } else if (tanvirBal < -0.004 && zilamBal < -0.004) {
+    // Both members owe to fund deficit
+    settlementAmount = roundCurrency(Math.abs(tanvirBal) + Math.abs(zilamBal));
     settlementMessage = `Fund Deficit: Tanvir owes ${formatCurrency(Math.abs(tanvirBal))} & Zilam owes ${formatCurrency(Math.abs(zilamBal))} to fund.`;
     isBalanced = false;
 
@@ -412,7 +474,7 @@ export function calculateMonthlySettlement(
       name: 'Tanvir',
       fullName: 'Tanvir Rana',
       action: 'owes',
-      actionLabel: 'Owes',
+      actionLabel: 'Payable',
       amount: Math.abs(tanvirBal),
       sourceNote: 'to fund deficit',
       dotColor: 'bg-emerald-400',
@@ -425,17 +487,17 @@ export function calculateMonthlySettlement(
       name: 'Zilam',
       fullName: 'Zilam Jahid',
       action: 'owes',
-      actionLabel: 'Owes',
+      actionLabel: 'Payable',
       amount: Math.abs(zilamBal),
       sourceNote: 'to fund deficit',
       dotColor: 'bg-blue-400',
       badgeClass: 'bg-rose-950 text-rose-300 border border-rose-800/80',
       amountColor: 'text-rose-400',
     };
-  } else if (tanvirBal > 0.005) {
+  } else if (tanvirBal > 0.004) {
     settlementReceiver = 'tanvir-rana';
     settlementAmount = tanvirBal;
-    settlementMessage = `Tanvir Rana will receive ${formatCurrency(tanvirBal)} from remaining fund.`;
+    settlementMessage = `Tanvir receives ${formatCurrency(tanvirBal)} from remaining fund.`;
     isBalanced = false;
 
     tanvirItem = {
@@ -443,7 +505,7 @@ export function calculateMonthlySettlement(
       name: 'Tanvir',
       fullName: 'Tanvir Rana',
       action: 'receives',
-      actionLabel: 'Receives',
+      actionLabel: 'Receivable',
       amount: tanvirBal,
       sourceNote: 'from remaining fund',
       dotColor: 'bg-emerald-400',
@@ -463,10 +525,10 @@ export function calculateMonthlySettlement(
       badgeClass: 'bg-slate-800 text-slate-400 border border-slate-700',
       amountColor: 'text-slate-400',
     };
-  } else if (zilamBal > 0.005) {
+  } else if (zilamBal > 0.004) {
     settlementReceiver = 'zilam-jahid';
     settlementAmount = zilamBal;
-    settlementMessage = `Zilam Jahid will receive ${formatCurrency(zilamBal)} from remaining fund.`;
+    settlementMessage = `Zilam receives ${formatCurrency(zilamBal)} from remaining fund.`;
     isBalanced = false;
 
     tanvirItem = {
@@ -487,12 +549,74 @@ export function calculateMonthlySettlement(
       name: 'Zilam',
       fullName: 'Zilam Jahid',
       action: 'receives',
-      actionLabel: 'Receives',
+      actionLabel: 'Receivable',
       amount: zilamBal,
       sourceNote: 'from remaining fund',
       dotColor: 'bg-blue-400',
       badgeClass: 'bg-emerald-950 text-emerald-300 border border-emerald-800/80',
       amountColor: 'text-amber-400',
+    };
+  } else if (tanvirBal < -0.004) {
+    settlementPayer = 'tanvir-rana';
+    settlementAmount = Math.abs(tanvirBal);
+    settlementMessage = `Tanvir owes ${formatCurrency(settlementAmount)} to fund.`;
+    isBalanced = false;
+
+    tanvirItem = {
+      memberId: 'tanvir-rana',
+      name: 'Tanvir',
+      fullName: 'Tanvir Rana',
+      action: 'owes',
+      actionLabel: 'Payable',
+      amount: Math.abs(tanvirBal),
+      sourceNote: 'to fund',
+      dotColor: 'bg-emerald-400',
+      badgeClass: 'bg-rose-950 text-rose-300 border border-rose-800/80',
+      amountColor: 'text-rose-400',
+    };
+
+    zilamItem = {
+      memberId: 'zilam-jahid',
+      name: 'Zilam',
+      fullName: 'Zilam Jahid',
+      action: 'settled',
+      actionLabel: 'Settled',
+      amount: 0,
+      sourceNote: 'balanced',
+      dotColor: 'bg-blue-400',
+      badgeClass: 'bg-slate-800 text-slate-400 border border-slate-700',
+      amountColor: 'text-slate-400',
+    };
+  } else if (zilamBal < -0.004) {
+    settlementPayer = 'zilam-jahid';
+    settlementAmount = Math.abs(zilamBal);
+    settlementMessage = `Zilam owes ${formatCurrency(settlementAmount)} to fund.`;
+    isBalanced = false;
+
+    tanvirItem = {
+      memberId: 'tanvir-rana',
+      name: 'Tanvir',
+      fullName: 'Tanvir Rana',
+      action: 'settled',
+      actionLabel: 'Settled',
+      amount: 0,
+      sourceNote: 'balanced',
+      dotColor: 'bg-emerald-400',
+      badgeClass: 'bg-slate-800 text-slate-400 border border-slate-700',
+      amountColor: 'text-slate-400',
+    };
+
+    zilamItem = {
+      memberId: 'zilam-jahid',
+      name: 'Zilam',
+      fullName: 'Zilam Jahid',
+      action: 'owes',
+      actionLabel: 'Payable',
+      amount: Math.abs(zilamBal),
+      sourceNote: 'to fund',
+      dotColor: 'bg-blue-400',
+      badgeClass: 'bg-rose-950 text-rose-300 border border-rose-800/80',
+      amountColor: 'text-rose-400',
     };
   } else {
     tanvirItem = {
@@ -546,6 +670,17 @@ export function calculateMonthlySettlement(
     settlementMessage,
     settlementItems,
     isBalanced,
+    isClosed,
+    finalizedSettlementAmount,
+    equalSharePerPerson,
+    tanvirContribution,
+    tanvirBalance: tanvirBal,
+    tanvirStanding: isFinalized ? 'Settled' : tanvirBal > 0.005 ? 'Receivable' : tanvirBal < -0.005 ? 'Payable' : 'Settled',
+    tanvirAmount: isFinalized ? 0 : Math.abs(tanvirBal),
+    zilamContribution,
+    zilamBalance: zilamBal,
+    zilamStanding: isFinalized ? 'Settled' : zilamBal > 0.005 ? 'Receivable' : zilamBal < -0.005 ? 'Payable' : 'Settled',
+    zilamAmount: isFinalized ? 0 : Math.abs(zilamBal),
   };
 }
 

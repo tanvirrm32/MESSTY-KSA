@@ -139,7 +139,7 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Status Badge */}
             {currentMonth.status === 'finalized' ? (
               <span className="hidden sm:inline-flex px-2 py-0.5 bg-amber-100 text-amber-800 text-[10px] font-bold uppercase rounded border border-amber-200 items-center gap-1 shrink-0">
-                <Lock className="w-2.5 h-2.5" /> Finalized
+                <Lock className="w-2.5 h-2.5" /> Finalized & Closed
               </span>
             ) : (
               <span className="hidden sm:inline-flex px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase rounded border border-emerald-200 items-center gap-1 shrink-0">
@@ -183,7 +183,7 @@ export const Header: React.FC<HeaderProps> = ({
                       </span>
                       {m.status === 'finalized' ? (
                         <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium">
-                          Finalized
+                          Finalized & Closed
                         </span>
                       ) : (
                         <span className="text-[10px] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded font-medium">

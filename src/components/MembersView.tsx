@@ -230,7 +230,9 @@ export const MembersView: React.FC = () => {
             <div className="mt-1 text-base font-bold text-slate-900 font-mono">
               {formatCurrency(stats.openingBalance)}
             </div>
-            <span className="text-[10px] text-slate-400 block mt-0.5">From previous month</span>
+            <span className="text-[10px] text-slate-400 block mt-0.5">
+              {stats.openingBalance === 0 ? 'Settled & Closed' : 'From previous month'}
+            </span>
           </div>
 
           {/* Total Contributions */}
